@@ -63,8 +63,8 @@ class DownloadsProjectManager(private val context: Context) {
 
     fun sanitizeProjectName(rawName: String): String {
         val cleaned = rawName.trim()
-            .replace(Regex("[\\/:*?"<>|]"), "_")
-            .replace(Regex("\s+"), "-")
+            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .replace(Regex("\\s+"), "-")
         return cleaned.ifEmpty {
             "project-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
         }

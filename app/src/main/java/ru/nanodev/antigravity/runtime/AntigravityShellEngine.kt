@@ -94,7 +94,7 @@ class AntigravityShellEngine(
             return@withContext executeViaTermuxIntent(trimmed.removePrefix("termux-exec ").trim(), workingDir)
         }
 
-        val tokens = trimmed.split(Regex("\s+"))
+        val tokens = trimmed.split(Regex("\\s+"))
         val cmdName = tokens.firstOrNull() ?: ""
         val args = tokens.drop(1)
 

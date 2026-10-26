@@ -99,7 +99,7 @@ class OfflineModelEngine(
             appendLine("Ответ сгенерирован локально на устройстве без отправки данных в сеть.")
             appendLine("- **Проект**: `$projectName` (`$workspacePath`)")
             appendLine("- **Веса модели**: `${modelsDir.absolutePath}/${activeModel.fileName}`")
-            appendLine("- **Запрос**: "$prompt"")
+            appendLine("- **Запрос**: \"$prompt\"")
             appendLine("- **Статус**: Локальный файловый рантайм (118 команд) и MCP-сервер доступны оффлайн.")
         }
     }

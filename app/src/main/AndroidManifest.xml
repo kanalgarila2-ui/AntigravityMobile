@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Network, WebSockets, MCP & Remote Desktop -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Android 11+ (API 30+) Downloads/Antigravity/chats/<project_name> Full File Access -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
+
+    <!-- Bilingual Voice Recognition (RU + EN) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Termux & Termux:API Execution Bridge -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Optional Phone Control Permissions (Only used when 'Управление телефоном' is enabled in Settings) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <queries>
+        <package android:name="com.termux" />
+        <package android:name="com.termux.api" />
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:label="Antigravity 2.0"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:requestLegacyExternalStorage="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <activity
+            android:name="ru.nanodev.antigravity.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- AgyUnlocker Background Service (DoH + IPv4 Pool + Local Proxy for cloudcode-pa) -->
+        <service
+            android:name="ru.nanodev.antigravity.unlocker.AgyUnlockerService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- Remote Desktop & Remote Control Host/Client Service -->
+        <service
+            android:name="ru.nanodev.antigravity.remotedesktop.RemoteDesktopService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProjection" />
+
+        <!-- Phone Control Accessibility Bridge (Active ONLY when enabled by user) -->
+        <service
+            android:name="ru.nanodev.antigravity.phone.AntigravityAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+        </service>
+
+        <!-- Home Screen Quick Launch Widget (Voice RU+EN, /goal, Remote Desktop, Active Project) -->
+        <receiver
+            android:name="ru.nanodev.antigravity.widget.AntigravityQuickWidgetReceiver"
+            android:exported="true"
+            android:label="Antigravity 2.0 Быстрый Запуск">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="ru.nanodev.antigravity.ACTION_WIDGET_VOICE_GOAL" />
+                <action android:name="ru.nanodev.antigravity.ACTION_WIDGET_REMOTE_DESKTOP" />
+                <action android:name="ru.nanodev.antigravity.ACTION_WIDGET_SWITCH_ACCOUNT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/antigravity_quick_widget_info" />
+        </receiver>
+
+        <!-- Background Scheduler Boot Receiver (/schedule persistence across device reboots) -->
+        <receiver
+            android:name="ru.nanodev.antigravity.scheduler.ScheduleBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -1,0 +1,140 @@
+name: Build Antigravity 2.0 Android APK (ru.nanodev • v0.1.0) with Full Cache
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Release Version Name'
+        required: false
+        default: '0.1.0'
+
+permissions:
+  contents: write
+
+env:
+  JAVA_VERSION: '17'
+  ANDROID_COMPILE_SDK: '34'
+  ANDROID_BUILD_TOOLS: '34.0.0'
+  GRADLE_OPTS: '-Dorg.gradle.daemon=false -Dorg.gradle.caching=true -Dorg.gradle.configuration-cache=true'
+
+jobs:
+  build-apk:
+    name: Generate Icons (PIL) & Compile APK (Cached)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python & Generate Launcher Icons via Pillow (PIL)
+        run: |
+          python3 -m pip install --upgrade pip pillow
+          python3 scripts/generate_icons.py
+          python3 -m py_compile app/src/main/assets/antigravity_sdk_android/*.py
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Cache Android SDK & Build Tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.android/build-cache
+            ~/.android/cache
+          key: ${{ runner.os }}-android-sdk-${{ env.ANDROID_COMPILE_SDK }}-${{ env.ANDROID_BUILD_TOOLS }}
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
+
+      - name: Cache Gradle Wrapper, Dependencies & Kotlin Build Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.gradle/daemon
+            .gradle/configuration-cache
+            app/build/intermediates
+            app/build/kotlin
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', 'app/src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+            ${{ runner.os }}-gradle-
+
+      - name: Setup Gradle Action with Build Cache
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+          gradle-version: '8.7'
+
+      - name: Build Debug & Release APKs (ru.nanodev.antigravity)
+        run: |
+          gradle assembleDebug assembleRelease --build-cache --configuration-cache --parallel --stacktrace
+
+      - name: Sign Release APK
+        run: |
+          KEYSTORE_FILE="nanodev-antigravity.jks"
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "$KEYSTORE_FILE"
+            KS_PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+            KEY_ALIAS="${{ secrets.KEY_ALIAS }}"
+            KEY_PASS="${{ secrets.KEY_PASSWORD }}"
+          else
+            keytool -genkey -v -keystore "$KEYSTORE_FILE" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias nanodev_key \
+              -storepass nanodev2026 \
+              -keypass nanodev2026 \
+              -dname "CN=NanoDev Antigravity 2.0, OU=Mobile AI, O=NanoDev, L=Almaty, S=KZ, C=KZ"
+            KS_PASS="nanodev2026"
+            KEY_ALIAS="nanodev_key"
+            KEY_PASS="nanodev2026"
+          fi
+
+          UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED_APK="app/build/outputs/apk/release/Antigravity-2.0-ru.nanodev-v0.1.0-release.apk"
+          DEBUG_APK="app/build/outputs/apk/debug/Antigravity-2.0-ru.nanodev-v0.1.0-debug.apk"
+
+          cp app/build/outputs/apk/debug/app-debug.apk "$DEBUG_APK"
+
+          if [ -f "$UNSIGNED_APK" ]; then
+            ${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/zipalign -v -p 4 "$UNSIGNED_APK" aligned.apk
+            ${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS}/apksigner sign \
+              --ks "$KEYSTORE_FILE" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$KS_PASS" \
+              --key-pass "pass:$KEY_PASS" \
+              --out "$SIGNED_APK" \
+              aligned.apk
+            rm -f aligned.apk "$KEYSTORE_FILE"
+          fi
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Antigravity-2.0-ru.nanodev-v0.1.0-Debug
+          path: app/build/outputs/apk/debug/Antigravity-2.0-ru.nanodev-v0.1.0-debug.apk
+          retention-days: 30
+
+      - name: Upload Signed Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Antigravity-2.0-ru.nanodev-v0.1.0-Release
+          path: app/build/outputs/apk/release/Antigravity-2.0-ru.nanodev-v0.1.0-release.apk
+          retention-days: 90
+
+      - name: Create GitHub Release (v0.1.0)
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.0
+          name: "Antigravity 2.0 Android (ru.nanodev.antigravity) v0.1.0"
+          files: |
+            app/build/outputs/apk/release/Antigravity-2.0-ru.nanodev-v0.1.0-release.apk
+            app/build/outputs/apk/debug/Antigravity-2.0-ru.nanodev-v0.1.0-debug.apk

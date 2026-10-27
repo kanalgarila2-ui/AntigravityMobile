@@ -10,6 +10,12 @@ plugins {
 // и тогда поставить поверх уже установленной сборки не получится.
 val agKeystorePath: String? = System.getenv("AG_KEYSTORE_PATH")
 
+// Web Client ID для Google Sign-In. Не секрет: его видно в приложении при входе.
+// Берётся из gradle.properties (AG_GOOGLE_WEB_CLIENT_ID) или переменной окружения.
+val googleWebClientId: String = (findProperty("AG_GOOGLE_WEB_CLIENT_ID") as String?)
+    ?: System.getenv("AG_GOOGLE_WEB_CLIENT_ID")
+    ?: ""
+
 android {
     namespace = "ru.nanodev.antigravity"
     compileSdk = 34
@@ -21,6 +27,7 @@ android {
         // Растёт от сборки к сборке (CI подставляет номер запуска), иначе обновление не встанет
         versionCode = (System.getenv("AG_VERSION_CODE") ?: "2").toInt()
         versionName = "0.2.0"
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     if (agKeystorePath != null) {
@@ -92,6 +99,11 @@ dependencies {
 
     // Хранение API-ключа в зашифрованных настройках
     implementation("androidx.security:security-crypto:1.0.0")
+
+    // Вход через Google (Credential Manager)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 

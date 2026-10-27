@@ -27,3 +27,14 @@
 
 ## Сборка с подписью в CI (по желанию)
 Если добавить секреты `AG_KEYSTORE_B64`, `AG_KEYSTORE_PASSWORD`, `AG_KEY_ALIAS`, `AG_KEY_PASSWORD`, CI подпишет APK сам. Тогда ключ будет лежать в GitHub Secrets, и любой, кто получит доступ к настройкам репозитория, сможет его использовать.
+
+## Вход через Google (OAuth)
+Вход работает через Credential Manager и подтверждает аккаунт. Запросы к Gemini по-прежнему идут по ключу API.
+
+Нужен Web Client ID. Один раз в Google Cloud Console:
+1. Проект → APIs & Services → OAuth consent screen. External, добавьте свою почту в Test users.
+2. Credentials → Create credentials → OAuth client ID → тип Web application. Скопируйте Client ID.
+3. Credentials → Create credentials → OAuth client ID → тип Android. Package name `ru.nanodev.antigravity`, SHA-1 вашего ключа `ABE8D7244CCFEF934E49FC7BF7647E94C5E83C7D`.
+4. В GitHub: Settings → Secrets and variables → Actions → Variables → New repository variable. Имя `AG_GOOGLE_WEB_CLIENT_ID`, значение — Web Client ID. Это переменная, не секрет: Client ID публичный.
+
+Пока переменная не задана, кнопка Google неактивна и подписана «Google-вход не настроен».

@@ -68,6 +68,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ru.nanodev.antigravity.R
 import ru.nanodev.antigravity.auth.ApiKeyStore
+import ru.nanodev.antigravity.auth.GoogleResult
+import ru.nanodev.antigravity.auth.GoogleSignIn
 import ru.nanodev.antigravity.net.Connectivity
 import ru.nanodev.antigravity.net.GeminiApi
 import ru.nanodev.antigravity.net.KeyCheck
@@ -96,6 +98,9 @@ fun OnboardingScreen(keyStore: ApiKeyStore, onAuthenticated: () -> Unit) {
 
     var key by rememberSaveable { mutableStateOf("") }
     var reveal by rememberSaveable { mutableStateOf(false) }
+    var googleEmail by remember { mutableStateOf(keyStore.googleEmail) }
+    var googleBusy by remember { mutableStateOf(false) }
+    var googleError by remember { mutableStateOf<String?>(null) }
     var state by remember { mutableStateOf<OnbState>(OnbState.Idle) }
 
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -283,12 +288,45 @@ fun OnboardingScreen(keyStore: ApiKeyStore, onAuthenticated: () -> Unit) {
 
         Spacer(Modifier.height(16.dp))
 
+        Spacer(Modifier.height(8.dp))
+
         OutlinedButton(
-            onClick = {},
-            enabled = false,
+            onClick = {
+                if (googleBusy) return@OutlinedButton
+                googleBusy = true
+                googleError = null
+                scope.launch {
+                    when (val r = GoogleSignIn.signIn(context)) {
+                        is GoogleResult.Success -> {
+                            keyStore.saveGoogleAccount(r.email, r.name)
+                            googleEmail = r.email
+                        }
+                        is GoogleResult.Failed -> googleError = r.reason
+                        GoogleResult.Cancelled -> Unit
+                        GoogleResult.NotConfigured -> googleError = "Не задан Web Client ID для Google-входа"
+                    }
+                    googleBusy = false
+                }
+            },
+            enabled = GoogleSignIn.isConfigured && !googleBusy,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Войти через Google · скоро")
+            Text(
+                when {
+                    googleBusy -> "Вход…"
+                    googleEmail != null -> "Google: $googleEmail"
+                    GoogleSignIn.isConfigured -> "Войти через Google"
+                    else -> "Google-вход не настроен"
+                }
+            )
         }
+        googleError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+        }
+        Text(
+            "Аккаунт Google подтверждает вход. Запросы к Gemini всё равно идут по ключу API.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

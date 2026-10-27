@@ -46,6 +46,7 @@ jobs:
           AG_KEY_ALIAS: ${{ secrets.AG_KEY_ALIAS }}
           AG_KEY_PASSWORD: ${{ secrets.AG_KEY_PASSWORD }}
           AG_VERSION_CODE: ${{ github.run_number }}
+          AG_GOOGLE_WEB_CLIENT_ID: ${{ vars.AG_GOOGLE_WEB_CLIENT_ID }}
         run: gradle assembleRelease --no-daemon
 
       - name: Проверка подписи (только если подпись в CI включена)

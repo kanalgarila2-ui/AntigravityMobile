@@ -6,8 +6,8 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
 /**
- * Хранилище API-ключа. Ключ лежит только в зашифрованных настройках приложения,
- * никогда не попадает в settings.json (он лежит в общей папке Downloads).
+ * Зашифрованное хранилище: API-ключ Gemini и данные аккаунта Google.
+ * Ничего из этого не попадает в settings.json (он лежит в общей папке Downloads).
  * Если Keystore недоступен, ключ держится в памяти и не сохраняется на диск.
  */
 class ApiKeyStore(context: Context) {
@@ -34,13 +34,27 @@ class ApiKeyStore(context: Context) {
 
     val hasKey: Boolean get() = apiKey.isNotBlank()
 
+    /** Выход из ключа. Аккаунт Google сохраняется. */
     fun clear() {
         prefs?.edit()?.remove(KEY_API)?.apply()
         memoryKey = ""
     }
 
+    val googleEmail: String? get() = prefs?.getString(KEY_G_EMAIL, null)
+    val googleName: String? get() = prefs?.getString(KEY_G_NAME, null)
+
+    fun saveGoogleAccount(email: String, name: String) {
+        prefs?.edit()?.putString(KEY_G_EMAIL, email)?.putString(KEY_G_NAME, name)?.apply()
+    }
+
+    fun forgetGoogleAccount() {
+        prefs?.edit()?.remove(KEY_G_EMAIL)?.remove(KEY_G_NAME)?.apply()
+    }
+
     private companion object {
         const val FILE_NAME = "antigravity_secure"
         const val KEY_API = "gemini_api_key"
+        const val KEY_G_EMAIL = "google_email"
+        const val KEY_G_NAME = "google_name"
     }
 }

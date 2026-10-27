@@ -7,6 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.nanodev.antigravity.sdk.AntigravitySettings
 import java.io.File
+import ru.nanodev.antigravity.auth.ApiKeyStore
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -63,8 +64,8 @@ class DownloadsProjectManager(private val context: Context) {
 
     fun sanitizeProjectName(rawName: String): String {
         val cleaned = rawName.trim()
-            .replace(Regex("[\\\\/:*?\"<>|]"), "_")
-            .replace(Regex("\\s+"), "-")
+            .replace(Regex("[\\/:*?"<>|]"), "_")
+            .replace(Regex("\s+"), "-")
         return cleaned.ifEmpty {
             "project-" + SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
         }
@@ -98,7 +99,7 @@ class DownloadsProjectManager(private val context: Context) {
                     id = "msg_init",
                     role = "agent",
                     content = "Локальный проект **$projectName** (`ru.nanodev.antigravity`) инициализирован в `${projectDir.absolutePath}`.\n" +
-                        "Доступны: 118+ команд мини-платформы, MCP-сервер, оффлайн-модель LiteRT, планировщик `/schedule` и Remote Desktop.",
+                        "Доступны: 118+ команд мини-платформы, MCP-сервер, планировщик `/schedule` и Remote Desktop.",
                     thoughtTrace = "Initialized /Download/Antigravity/chats/$projectName"
                 )
             ),
@@ -126,15 +127,40 @@ class DownloadsProjectManager(private val context: Context) {
         return sessions.sortedByDescending { it.updatedAt }
     }
 
+    /** Секреты (ключ API, OAuth-токены) в settings.json не пишутся: папка Downloads общедоступна. */
     fun saveGlobalSettings(settings: AntigravitySettings) {
-        File(getAntigravityRootDir(), "settings.json").writeText(json.encodeToString(settings))
+        val safe = settings.copy(
+            geminiApiKey = "",
+            accounts = settings.accounts.map { it.copy(customApiKey = "", oauthAccessToken = "") }
+        )
+        File(getAntigravityRootDir(), "settings.json").writeText(json.encodeToString(safe))
     }
 
     fun loadGlobalSettings(): AntigravitySettings {
         val file = File(getAntigravityRootDir(), "settings.json")
         if (file.exists()) {
-            runCatching { return json.decodeFromString<AntigravitySettings>(file.readText()) }
+            runCatching {
+                val loaded = json.decodeFromString<AntigravitySettings>(file.readText())
+                if (loaded.settingsSchemaVersion < 2) {
+                    val store = ApiKeyStore(context)
+                    // Старый ключ из settings.json переносим в зашифрованное хранилище
+                    if (!store.hasKey && loaded.geminiApiKey.isNotBlank()) store.apiKey = loaded.geminiApiKey
+                    val migrated = loaded.copy(
+                        remoteControlHostEnabled = false,   // Remote Control — Beta, выключен по умолчанию
+                        settingsSchemaVersion = 2
+                    )
+                    saveGlobalSettings(migrated)
+                    return withStoredKey(migrated)
+                }
+                return withStoredKey(loaded)
+            }
         }
-        return AntigravitySettings().also { saveGlobalSettings(it) }
+        return withStoredKey(AntigravitySettings().also { saveGlobalSettings(it) })
+    }
+
+    /** Подставляет ключ из защищённого хранилища в настройки в памяти. */
+    private fun withStoredKey(s: AntigravitySettings): AntigravitySettings {
+        val key = ApiKeyStore(context).apiKey
+        return if (s.geminiApiKey.isBlank() && key.isNotBlank()) s.copy(geminiApiKey = key) else s
     }
 }

@@ -11,17 +11,17 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import ru.nanodev.antigravity.unlocker.AgyUnlockerService
+import ru.nanodev.antigravity.net.Connectivity
+import ru.nanodev.antigravity.net.GeminiApi
 
 @Serializable
 data class AntigravityModelInfo(
     val id: String,
     val displayName: String,
-    val provider: String, // "Google Antigravity API", "Vertex Enterprise", "Anthropic Partner", "Offline LiteRT (On-Device)"
+    val provider: String, // "Google Antigravity API", "Vertex Enterprise", "Anthropic Partner", "Local"
     val maxInputTokens: Int = 2097152,
     val maxOutputTokens: Int = 65536,
     val supportsThinking: Boolean = true,
-    val isOffline: Boolean = false,
     val badge: String = "LATEST"
 )
 
@@ -30,7 +30,6 @@ data class AntigravityModelInfo(
  * Запрашивает самые последние доступные модели напрямую по API:
  * 1. `GET https://generativelanguage.googleapis.com/v1beta/models` (при наличии GEMINI_API_KEY или OAuth)
  * 2. `POST https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels` (каталог Antigravity 2.0)
- * 3. Локальные оффлайн-модели из `/storage/emulated/0/Download/Antigravity/models/` (LiteRT / GGUF).
  */
 class DynamicModelRegistry {
 
@@ -90,26 +89,6 @@ class DynamicModelRegistry {
             maxOutputTokens = 32768,
             supportsThinking = true,
             badge = "PARTNER"
-        ),
-        AntigravityModelInfo(
-            id = "litert-gemini-nano-ondevice",
-            displayName = "Gemini Nano 2 (LiteRT NPU Offline)",
-            provider = "Offline LiteRT (On-Device)",
-            maxInputTokens = 32768,
-            maxOutputTokens = 8192,
-            supportsThinking = false,
-            isOffline = true,
-            badge = "OFFLINE"
-        ),
-        AntigravityModelInfo(
-            id = "litert-gemma-3-4b-it-q4",
-            displayName = "Gemma 3 4B-IT Q4_K_M (Local Offline)",
-            provider = "Offline LiteRT (On-Device)",
-            maxInputTokens = 131072,
-            maxOutputTokens = 8192,
-            supportsThinking = true,
-            isOffline = true,
-            badge = "OFFLINE"
         )
     )
 
@@ -120,6 +99,7 @@ class DynamicModelRegistry {
     val lastSyncTimestamp: StateFlow<Long> = _lastSyncTimestamp
 
     suspend fun refreshModelsFromApi(settings: AntigravitySettings): List<AntigravityModelInfo> = withContext(Dispatchers.IO) {
+        if (!Connectivity.online.value) return@withContext _models.value
         val discovered = mutableListOf<AntigravityModelInfo>()
         discovered.addAll(defaultLatestModels)
 
@@ -128,17 +108,11 @@ class DynamicModelRegistry {
 
         if (apiKey.isNotEmpty() || !activeAcc?.oauthAccessToken.isNullOrEmpty()) {
             runCatching {
-                val client: OkHttpClient = AgyUnlockerService.buildUnlockedHttpClient(
-                    customDnsIpv4 = settings.agyUnlockerCustomDnsIpv4,
-                    preferIpv4 = settings.agyUnlockerPrioritizeIpv4,
-                    patchIneligible = settings.agyUnlockerPatchIneligible
-                )
-                val url = if (apiKey.isNotEmpty()) {
-                    "https://generativelanguage.googleapis.com/v1beta/models?pageSize=50&key=$apiKey"
-                } else {
-                    "https://generativelanguage.googleapis.com/v1beta/models?pageSize=50"
-                }
-                val reqBuilder = Request.Builder().url(url).get()
+                val client: OkHttpClient = GeminiApi.client
+                val reqBuilder = Request.Builder()
+                    .url("https://generativelanguage.googleapis.com/v1beta/models?pageSize=50")
+                    .get()
+                if (apiKey.isNotEmpty()) reqBuilder.addHeader("x-goog-api-key", apiKey)
                 if (apiKey.isEmpty() && !activeAcc?.oauthAccessToken.isNullOrEmpty()) {
                     reqBuilder.addHeader("Authorization", "Bearer ${activeAcc?.oauthAccessToken}")
                 }

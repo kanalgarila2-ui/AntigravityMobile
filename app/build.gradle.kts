@@ -4,33 +4,48 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Один ключ подписи для debug и release: APK обновляются поверх друг друга.
+// Путь и пароли берутся из переменных окружения (в CI — из GitHub Secrets).
+// Без AG_KEYSTORE_PATH сборка подписывается стандартным debug-ключом машины,
+// и тогда поставить поверх уже установленной сборки не получится.
+val agKeystorePath: String? = System.getenv("AG_KEYSTORE_PATH")
+
 android {
     namespace = "ru.nanodev.antigravity"
     compileSdk = 34
 
     defaultConfig {
         applicationId = "ru.nanodev.antigravity"
-        minSdk = 30 // Android 11+
+        minSdk = 30
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // Растёт от сборки к сборке (CI подставляет номер запуска), иначе обновление не встанет
+        versionCode = (System.getenv("AG_VERSION_CODE") ?: "2").toInt()
+        versionName = "0.2.0"
+    }
 
-        vectorDrawables {
-            useSupportLibrary = true
+    if (agKeystorePath != null) {
+        signingConfigs {
+            create("shared") {
+                storeFile = file(agKeystorePath)
+                storePassword = System.getenv("AG_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("AG_KEY_ALIAS")
+                keyPassword = System.getenv("AG_KEY_PASSWORD")
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (agKeystorePath != null) signingConfig = signingConfigs.getByName("shared")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+            // Без applicationIdSuffix: debug и release — один и тот же пакет
+            if (agKeystorePath != null) signingConfig = signingConfigs.getByName("shared")
         }
     }
 
@@ -67,7 +82,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.3")
     implementation("androidx.activity:activity-compose:1.9.0")
 
-    // Compose UI, Animations & Material3
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
@@ -76,21 +90,14 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.2.1")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // Background Scheduler (/schedule via Android WorkManager)
+    // Хранение API-ключа в зашифрованных настройках
+    implementation("androidx.security:security-crypto:1.0.0")
+
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Coroutines & Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    // Networking, WebSockets (Remote Desktop / MCP SSE) & DoH (AgyUnlocker)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.squareup.okhttp3:okhttp-dnsoverhttps:4.12.0")
-    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
 
-    // On-Device Offline Model Runtime (Google AI Edge LiteRT / MediaPipe LLM Inference)
-    implementation("com.google.mediapipe:tasks-genai:0.10.14")
-
-    // Offline Speech Recognition (Vosk Android + Android SpeechRecognizer hybrid)
-    implementation("com.alphacephei:vosk-android:0.3.47")
 }

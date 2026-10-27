@@ -1,159 +1,154 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PIL (Pillow) Launcher Icon Generator for Antigravity 2.0 Android (ru.nanodev.antigravity)
-Generates adaptive icon layers (432x432), Play Store 512x512 icon, and all mipmap-* PNGs.
-Can be run locally or inside GitHub Actions CI before `./gradlew assembleRelease`.
+Генератор иконок Antigravity 2.0 (ru.nanodev.antigravity).
+
+Метка: «A» из толстых скруглённых штрихов с диагональным градиентом
+(синий -> фиолетовый -> коралловый) и мягким свечением.
+Рисуется с 4x супер-сэмплингом и уменьшается LANCZOS-фильтром.
+
+Выходы:
+  app/src/main/res/mipmap-*/ic_launcher{,_round}.png
+  app/src/main/res/drawable/ic_launcher_foreground.png   (adaptive, 432x432, прозрачный фон)
+  app/src/main/res/drawable/ic_launcher_background.png   (adaptive, 432x432, фон)
+  app/src/main/ic_launcher-playstore.png                 (512x512, непрозрачный, для Play)
 """
-import math
 import os
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-def render_antigravity_icon(size: int = 512, round_mask: bool = False, transparent_bg: bool = False) -> Image.Image:
-    # Render at 2x supersampling for crisp anti-aliased geometry
-    ss = 2
-    w = size * ss
-    img = Image.new("RGBA", (w, w), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
+SS = 4  # супер-сэмплинг
 
-    if not transparent_bg:
-        # Deep space obsidian background with subtle radial indigo/cyan glow
-        bg = Image.new("RGBA", (w, w), (11, 14, 20, 255))
-        bg_draw = ImageDraw.Draw(bg)
-        cx, cy = w // 2, w // 2
-        max_r = int(w * 0.55)
-        for r in range(max_r, 0, -4):
-            t = 1.0 - (r / max_r)
-            col = (
-                int(11 + 28 * t),
-                int(14 + 55 * t),
-                int(20 + 95 * t),
-                255
-            )
-            bg_draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=col)
+# Точки градиента: позиция 0..1 -> RGB
+PALETTE_POS = [0.00, 0.42, 0.74, 1.00]
+PALETTE_RGB = np.array([
+    [79, 195, 255],   # голубой
+    [66, 133, 244],   # синий
+    [155, 107, 255],  # фиолетовый
+    [255, 138, 101],  # коралловый
+], dtype=np.float32)
 
-        # Mask into squircle or circle
-        mask = Image.new("L", (w, w), 0)
-        mdraw = ImageDraw.Draw(mask)
-        pad = int(w * 0.04)
-        if round_mask:
-            mdraw.ellipse([pad, pad, w - pad, w - pad], fill=255)
-        else:
-            radius = int(w * 0.22)
-            mdraw.rounded_rectangle([pad, pad, w - pad, w - pad], radius=radius, fill=255)
 
-        img.paste(bg, (0, 0), mask)
-        draw = ImageDraw.Draw(img)
+def diag_gradient(w: int) -> Image.Image:
+    ys, xs = np.mgrid[0:w, 0:w].astype(np.float32)
+    t = (xs + ys) / (2.0 * (w - 1))
+    t = np.clip((t - 0.30) / 0.42, 0.0, 1.0)  # метка занимает ~30..72% холста
+    out = np.empty((w, w, 3), dtype=np.float32)
+    for ch in range(3):
+        out[..., ch] = np.interp(t, PALETTE_POS, PALETTE_RGB[:, ch])
+    return Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
-        # Subtle glowing border on squircle/circle
-        border_pad = int(w * 0.045)
-        if round_mask:
-            draw.ellipse([border_pad, border_pad, w - border_pad, w - border_pad], outline=(0, 229, 255, 95), width=max(2, w // 90))
-        else:
-            draw.rounded_rectangle(
-                [border_pad, border_pad, w - border_pad, w - border_pad],
-                radius=int(w * 0.22),
-                outline=(79, 140, 255, 110),
-                width=max(2, w // 90)
-            )
 
-    cx, cy = w // 2, w // 2
+def background(w: int) -> Image.Image:
+    ys, xs = np.mgrid[0:w, 0:w].astype(np.float32)
+    # Вертикальный градиент тёмного фона + мягкое световое пятно сверху
+    top = np.array([16, 22, 42], np.float32)
+    bot = np.array([3, 5, 11], np.float32)
+    t = (ys / w)[..., None]
+    base = top * (1 - t) + bot * t
+    d = np.sqrt((xs - w * 0.5) ** 2 + (ys - w * 0.30) ** 2) / (w * 0.75)
+    glow = np.clip(1 - d, 0, 1) ** 2
+    col = base + glow[..., None] * np.array([34, 64, 128], np.float32)
+    return Image.fromarray(np.clip(col, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
 
-    # 1. Outer Anti-Gravity Orbital Ring
-    ring_r = int(w * 0.33)
-    ring_w = max(4, int(w * 0.028))
-    draw.arc(
-        [cx - ring_r, cy - ring_r, cx + ring_r, cy + ring_r],
-        start=200, end=520,
-        fill=(0, 229, 255, 220),
-        width=ring_w
-    )
-    draw.arc(
-        [cx - int(ring_r * 1.08), cy - int(ring_r * 0.62), cx + int(ring_r * 1.08), cy + int(ring_r * 0.62)],
-        start=20, end=165,
-        fill=(79, 140, 255, 180),
-        width=max(3, int(w * 0.018))
-    )
 
-    # 2. Central Floating "A" / Delta Anti-Gravity Core
-    top_y = int(cy - w * 0.23)
-    bot_y = int(cy + w * 0.19)
-    half_span = int(w * 0.19)
+def _p(w, f, x, y):
+    """Нормированные координаты метки -> пиксели холста с масштабом f."""
+    return (w / 2 + (x - 0.5) * w * f, w / 2 + (y - 0.5) * w * f)
 
-    # Outer triangle points
-    outer_pts = [
-        (cx, top_y),
-        (cx + half_span, bot_y),
-        (cx + int(half_span * 0.52), bot_y),
-        (cx, int(top_y + (bot_y - top_y) * 0.42)),
-        (cx - int(half_span * 0.52), bot_y),
-        (cx - half_span, bot_y),
-    ]
-    draw.polygon(outer_pts, fill=(255, 255, 255, 255))
 
-    # Floating cyan energy crossbar (levitating inside the A)
-    bar_y1 = int(cy + w * 0.01)
-    bar_y2 = int(cy + w * 0.065)
-    bar_x_span = int(w * 0.11)
-    draw.rounded_rectangle(
-        [cx - bar_x_span, bar_y1, cx + bar_x_span, bar_y2],
-        radius=max(2, (bar_y2 - bar_y1) // 2),
-        fill=(0, 229, 255, 255)
-    )
+def mark_mask(w: int, f: float, sw_k: float = 0.125) -> Image.Image:
+    """Маска метки 'A' и искорки (L-режим), размер w x w."""
+    m = Image.new("L", (w, w), 0)
+    d = ImageDraw.Draw(m)
+    sw = sw_k * w * f
 
-    # Top levitating spark / satellite dot
-    dot_r = max(3, int(w * 0.026))
-    dot_y = int(top_y - w * 0.055)
-    draw.ellipse([cx - dot_r, dot_y - dot_r, cx + dot_r, dot_y + dot_r], fill=(0, 229, 255, 255))
+    apex, lf, rf = (0.50, 0.24), (0.25, 0.78), (0.75, 0.78)
+    # Точка левой и правой ноги на высоте перекладины y=0.60
+    ty = (0.60 - apex[1]) / (lf[1] - apex[1])
+    cl = (apex[0] + (lf[0] - apex[0]) * ty, 0.60)
+    cr = (apex[0] + (rf[0] - apex[0]) * ty, 0.60)
 
-    return img.resize((size, size), Image.Resampling.LANCZOS)
+    legs = [_p(w, f, *apex), _p(w, f, *lf)]
+    d.line(legs, fill=255, width=int(round(sw)), joint="curve")
+    d.line([_p(w, f, *apex), _p(w, f, *rf)], fill=255, width=int(round(sw)), joint="curve")
+    d.line([_p(w, f, *cl), _p(w, f, *cr)], fill=255, width=int(round(sw * 0.82)))
+
+    # Скруглённые концы
+    r = sw / 2
+    for x, y in [apex, lf, rf]:
+        px, py = _p(w, f, x, y)
+        d.ellipse([px - r, py - r, px + r, py + r], fill=255)
+
+    return m
+
+
+def mark_layer(w: int, f: float) -> Image.Image:
+    """RGBA-слой с градиентной меткой и свечением. Прозрачный фон."""
+    mask = mark_mask(w, f)
+    grad = diag_gradient(w)
+
+    # Свечение: размытая маска градиентом, полупрозрачно
+    glow_alpha = mask.filter(ImageFilter.GaussianBlur(radius=w * 0.035))
+    glow_alpha = glow_alpha.point(lambda v: int(v * 0.55))
+    glow = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    glow.paste(grad, (0, 0), glow_alpha)
+
+    # Сама метка
+    solid = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    solid.paste(grad, (0, 0), mask)
+
+    out = Image.new("RGBA", (w, w), (0, 0, 0, 0))
+    out.alpha_composite(glow)
+    out.alpha_composite(solid)
+    return out
+
+
+def full_icon(size: int, round_mask: bool) -> Image.Image:
+    w = size * SS
+    bg = background(w)
+    layer = mark_layer(w, f=0.66)  # полноразмерная метка на полном холсте
+
+    canvas = bg.copy()
+    canvas.alpha_composite(layer)
+
+    if round_mask:
+        m = Image.new("L", (w, w), 0)
+        ImageDraw.Draw(m).ellipse([0, 0, w - 1, w - 1], fill=255)
+        canvas.putalpha(m)
+    return canvas.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def foreground_layer(size: int = 432) -> Image.Image:
+    """Adaptive-foreground: метка в безопасной зоне (66% диаметра), прозрачный фон."""
+    w = size * SS
+    layer = mark_layer(w, f=0.70)
+    return layer.resize((size, size), Image.Resampling.LANCZOS)
+
 
 def generate_all_android_icons(project_root: str = "."):
-    res_dir = os.path.join(project_root, "app/src/main/res")
+    res = os.path.join(project_root, "app/src/main/res")
     densities = {
-        "mipmap-mdpi": 48,
-        "mipmap-hdpi": 72,
-        "mipmap-xhdpi": 96,
-        "mipmap-xxhdpi": 144,
-        "mipmap-xxxhdpi": 192,
+        "mipmap-mdpi": 48, "mipmap-hdpi": 72, "mipmap-xhdpi": 96,
+        "mipmap-xxhdpi": 144, "mipmap-xxxhdpi": 192,
     }
     for folder, px in densities.items():
-        target_dir = os.path.join(res_dir, folder)
-        os.makedirs(target_dir, exist_ok=True)
-        render_antigravity_icon(px, round_mask=False, transparent_bg=False).save(
-            os.path.join(target_dir, "ic_launcher.png"), "PNG"
-        )
-        render_antigravity_icon(px, round_mask=True, transparent_bg=False).save(
-            os.path.join(target_dir, "ic_launcher_round.png"), "PNG"
-        )
+        d = os.path.join(res, folder)
+        os.makedirs(d, exist_ok=True)
+        full_icon(px, round_mask=False).save(os.path.join(d, "ic_launcher.png"), "PNG")
+        full_icon(px, round_mask=True).save(os.path.join(d, "ic_launcher_round.png"), "PNG")
 
-    # Adaptive icon foreground & background (432x432)
-    drawable_dir = os.path.join(res_dir, "drawable")
-    os.makedirs(drawable_dir, exist_ok=True)
-    render_antigravity_icon(432, round_mask=False, transparent_bg=True).save(
-        os.path.join(drawable_dir, "ic_launcher_foreground.png"), "PNG"
-    )
-    bg_img = Image.new("RGBA", (432, 432), (11, 14, 20, 255))
-    bg_img.save(os.path.join(drawable_dir, "ic_launcher_background.png"), "PNG")
+    dr = os.path.join(res, "drawable")
+    os.makedirs(dr, exist_ok=True)
+    foreground_layer(432).save(os.path.join(dr, "ic_launcher_foreground.png"), "PNG")
+    background(432 * SS).resize((432, 432), Image.Resampling.LANCZOS).save(
+        os.path.join(dr, "ic_launcher_background.png"), "PNG")
 
-    # Adaptive icon XMLs for Android 8.0+ / Android 11+
-    anydpi_dir = os.path.join(res_dir, "mipmap-anydpi-v26")
-    os.makedirs(anydpi_dir, exist_ok=True)
-    adaptive_xml = """<?xml version="1.0" encoding="utf-8"?>
-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-</adaptive-icon>
-"""
-    with open(os.path.join(anydpi_dir, "ic_launcher.xml"), "w", encoding="utf-8") as f:
-        f.write(adaptive_xml)
-    with open(os.path.join(anydpi_dir, "ic_launcher_round.xml"), "w", encoding="utf-8") as f:
-        f.write(adaptive_xml)
+    # Play Store: непрозрачный квадрат 512x512, без закруглений (их делает Play сам)
+    full_icon(512, round_mask=False).convert("RGB").save(
+        os.path.join(project_root, "app/src/main/ic_launcher-playstore.png"), "PNG")
+    print("Иконки Antigravity сгенерированы.")
 
-    # High-res 512x512 Play Store / Repo preview icon
-    playstore_path = os.path.join(project_root, "app/src/main/ic_launcher-playstore.png")
-    render_antigravity_icon(512, round_mask=False, transparent_bg=False).save(playstore_path, "PNG")
-    print("Generated all Android mipmap & adaptive icons via Pillow (PIL).")
 
 if __name__ == "__main__":
     generate_all_android_icons(".")

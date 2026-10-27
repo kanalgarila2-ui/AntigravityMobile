@@ -81,16 +81,6 @@ class ScheduleManager(private val context: Context, private val rootDir: File) {
                 promptCommand = "!zip backup_workspace.zip .",
                 enabled = true,
                 lastRunStatus = "Успешно (Автобэкап выполнен)"
-            ),
-            ScheduledAgentTask(
-                id = "sched_quota_sync",
-                title = "Мониторинг квот и проверка здоровья DoH",
-                projectName = "agy-unlocker-mobile",
-                cronOrInterval = "Каждые 15 минут",
-                intervalMinutes = 15,
-                promptCommand = "!agy-unlocker-status",
-                enabled = true,
-                lastRunStatus = "Активно (114 мс)"
             )
         )
         saveTasks(initial)

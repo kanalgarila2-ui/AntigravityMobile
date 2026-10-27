@@ -45,14 +45,14 @@
     </queries>
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:label="Antigravity 2.0"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:requestLegacyExternalStorage="true"
-        android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+        android:usesCleartextTraffic="false"
+        android:theme="@style/Theme.Antigravity">
 
         <activity
             android:name="ru.nanodev.antigravity.MainActivity"
@@ -64,28 +64,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- AgyUnlocker Background Service (DoH + IPv4 Pool + Local Proxy for cloudcode-pa) -->
-        <service
-            android:name="ru.nanodev.antigravity.unlocker.AgyUnlockerService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
-        <!-- Remote Desktop & Remote Control Host/Client Service -->
-        <service
-            android:name="ru.nanodev.antigravity.remotedesktop.RemoteDesktopService"
-            android:exported="false"
-            android:foregroundServiceType="dataSync|mediaProjection" />
-
-        <!-- Phone Control Accessibility Bridge (Active ONLY when enabled by user) -->
-        <service
-            android:name="ru.nanodev.antigravity.phone.AntigravityAccessibilityService"
-            android:exported="false"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-        </service>
 
         <!-- Home Screen Quick Launch Widget (Voice RU+EN, /goal, Remote Desktop, Active Project) -->
         <receiver

@@ -9,10 +9,20 @@ import android.os.Environment
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import ru.nanodev.antigravity.accounts.AccountSwitcherManager
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import ru.nanodev.antigravity.auth.ApiKeyStore
 import ru.nanodev.antigravity.mcp.McpServerEngine
-import ru.nanodev.antigravity.offline.OfflineModelEngine
+import ru.nanodev.antigravity.net.Connectivity
 import ru.nanodev.antigravity.phone.PhoneControlManager
 import ru.nanodev.antigravity.remotedesktop.RemoteDesktopService
 import ru.nanodev.antigravity.runtime.AntigravityShellEngine
@@ -22,19 +32,20 @@ import ru.nanodev.antigravity.sdk.DynamicModelRegistry
 import ru.nanodev.antigravity.sdk.QuotaLimitsMonitor
 import ru.nanodev.antigravity.storage.DownloadsProjectManager
 import ru.nanodev.antigravity.ui.AntigravityMainScreen
-import ru.nanodev.antigravity.unlocker.AgyUnlockerService
+import ru.nanodev.antigravity.ui.motion.AgAnim
+import ru.nanodev.antigravity.ui.onboarding.OnboardingScreen
+import ru.nanodev.antigravity.ui.theme.AgBackdrop
+import ru.nanodev.antigravity.ui.theme.AgTheme
 import ru.nanodev.antigravity.voice.BilingualVoiceEngine
 
 class MainActivity : ComponentActivity() {
 
+    private lateinit var keyStore: ApiKeyStore
     private lateinit var projectManager: DownloadsProjectManager
     private lateinit var shellEngine: AntigravityShellEngine
-    private lateinit var phoneControl: PhoneControlManager
     private lateinit var voiceEngine: BilingualVoiceEngine
     private lateinit var mcpEngine: McpServerEngine
-    private lateinit var offlineEngine: OfflineModelEngine
     private lateinit var scheduleManager: ScheduleManager
-    private lateinit var accountSwitcher: AccountSwitcherManager
     private lateinit var modelRegistry: DynamicModelRegistry
     private lateinit var quotaMonitor: QuotaLimitsMonitor
     private lateinit var orchestrator: AntigravityAgentOrchestrator
@@ -45,58 +56,87 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        // Сеть и хранилище поднимаем первыми: остальное на них опирается
+        Connectivity.start(this)
+        keyStore = ApiKeyStore(this)
 
         projectManager = DownloadsProjectManager(this)
         val rootDir = projectManager.getAntigravityRootDir()
 
         shellEngine = AntigravityShellEngine(this)
-        phoneControl = PhoneControlManager(this)
         voiceEngine = BilingualVoiceEngine(this)
         mcpEngine = McpServerEngine(this, rootDir)
-        offlineEngine = OfflineModelEngine(this, rootDir)
         scheduleManager = ScheduleManager(this, rootDir)
-        accountSwitcher = AccountSwitcherManager(projectManager)
         modelRegistry = DynamicModelRegistry()
         quotaMonitor = QuotaLimitsMonitor()
 
         orchestrator = AntigravityAgentOrchestrator(
             projectManager = projectManager,
             shellEngine = shellEngine,
-            phoneControl = phoneControl,
+            phoneControl = PhoneControlManager(this),
             mcpEngine = mcpEngine,
-            offlineEngine = offlineEngine,
             quotaMonitor = quotaMonitor
         )
 
         requestNecessaryPermissions()
-        startService(Intent(this, AgyUnlockerService::class.java))
-        startService(Intent(this, RemoteDesktopService::class.java))
 
-        // Запускаем 5-минутный цикл автообновления лимитов (/usage)
+        // Remote Control (Beta) стартует только если включён в настройках
+        if (projectManager.loadGlobalSettings().remoteControlHostEnabled) {
+            RemoteDesktopService.setEnabled(this, true)
+        }
+
+        // Лимиты обновляются в фоне только при наличии сети (см. QuotaLimitsMonitor)
         quotaMonitor.startAutoRefreshLoop { projectManager.loadGlobalSettings() }
 
-        val quickAction = intent?.getStringExtra("quick_action")
-
         setContent {
-            AntigravityMainScreen(
-                projectManager = projectManager,
-                shellEngine = shellEngine,
-                voiceEngine = voiceEngine,
-                mcpEngine = mcpEngine,
-                offlineEngine = offlineEngine,
-                scheduleManager = scheduleManager,
-                accountSwitcher = accountSwitcher,
-                modelRegistry = modelRegistry,
-                quotaMonitor = quotaMonitor,
-                orchestrator = orchestrator,
-                initialQuickAction = quickAction,
-                onRequestManageStorage = { requestManageAllFilesAccess() }
-            )
+            AgTheme {
+                AgBackdrop {
+                    AppRoot()
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun AppRoot() {
+        var authed by remember { mutableStateOf(keyStore.hasKey) }
+
+        AnimatedContent(
+            targetState = authed,
+            transitionSpec = {
+                fadeIn(AgAnim.TAB_CONTENT_FADE.spec<Float>()) togetherWith
+                    fadeOut(AgAnim.TAB_CONTENT_FADE.spec<Float>())
+            },
+            label = "root"
+        ) { isAuthed ->
+            if (isAuthed) {
+                AntigravityMainScreen(
+                    projectManager = projectManager,
+                    shellEngine = shellEngine,
+                    voiceEngine = voiceEngine,
+                    mcpEngine = mcpEngine,
+                    scheduleManager = scheduleManager,
+                    modelRegistry = modelRegistry,
+                    quotaMonitor = quotaMonitor,
+                    orchestrator = orchestrator,
+                    onLogout = {
+                        keyStore.clear()
+                        authed = false
+                    }
+                )
+            } else {
+                OnboardingScreen(
+                    keyStore = keyStore,
+                    onAuthenticated = { authed = true }
+                )
+            }
         }
     }
 
     private fun requestNecessaryPermissions() {
-        val perms = mutableListOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.INTERNET)
+        val perms = mutableListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             perms.add(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -114,10 +154,5 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
-    }
-
-    override fun onDestroy() {
-        voiceEngine.stopListening()
-        super.onDestroy()
     }
 }

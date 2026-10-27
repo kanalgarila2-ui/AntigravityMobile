@@ -79,16 +79,16 @@ data class AntigravitySettings(
     val gcpProjectId: String = "",
     val gcpLocation: String = "us-central1",
 
-    // Модели (подгружаются по API + локальные LiteRT оффлайн)
+    // Модели (подгружаются по API)
     val selectedModel: String = "gemini-4-argon",
     val thinkingLevel: String = "HIGH",
-    val offlineModeEnabled: Boolean = false,
-    val autoFallbackToOfflineModel: Boolean = true,
-    val selectedOfflineModelId: String = "litert-gemini-nano-ondevice",
 
     // MCP & Remote Desktop
     val mcpLocalServerEnabled: Boolean = true,
-    val remoteControlHostEnabled: Boolean = true,
+    // Remote Control — BETA, по умолчанию выключено
+    val remoteControlHostEnabled: Boolean = false,
+    // Версия миграций настроек (см. DownloadsProjectManager.loadGlobalSettings)
+    val settingsSchemaVersion: Int = 0,
 
     // Safety & Permissions
     val permissionPreset: PermissionPreset = PermissionPreset.AUTO_PREVIEW,
@@ -114,12 +114,6 @@ data class AntigravitySettings(
     val preferTermuxIfInstalled: Boolean = true,
     val enableTermuxApiHardware: Boolean = true,
 
-    // AgyUnlocker (порт confeden/Antigravity)
-    val agyUnlockerEnabled: Boolean = true,
-    val agyUnlockerPatchIneligible: Boolean = true,
-    val agyUnlockerLocalProxyPort: Int = 53129,
-    val agyUnlockerCustomDnsIpv4: String = "1.1.1.1, 8.8.8.8",
-    val agyUnlockerPrioritizeIpv4: Boolean = true,
 
     // Display, Quotas & Animations
     val colorScheme: ColorSchemeTheme = ColorSchemeTheme.ANTIGRAVITY_DARK,

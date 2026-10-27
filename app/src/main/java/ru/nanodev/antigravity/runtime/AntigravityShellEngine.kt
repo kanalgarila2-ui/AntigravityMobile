@@ -56,12 +56,12 @@ class AntigravityShellEngine(
             "zip", "unzip", "tar", "gzip", "gunzip", "zcat", "bzip2", "xz", "7z", "ar-list",
             "download", "wget", "curl", "http-get", "http-post", "ping", "dns-lookup",
             "dig", "nslookup", "host", "ip-info", "ifconfig", "netstat", "ports",
-            "doh-resolve", "agy-unlocker-status",
+            "doh-resolve",
             "md5sum", "sha1sum", "sha256sum", "sha512sum", "crc32", "base64", "base64d",
             "hex-encode", "hex-decode", "urlencode", "urldecode", "uuidgen", "random-bytes",
             "git", "agy", "agy-project", "agy-artifacts", "agy-skills", "agy-hooks",
             "agy-subagent", "agy-schedule", "agy-permissions", "agy-doctor", "agy-cache", "agy-export",
-            "mcp-list", "mcp-call", "offline-models", "remote-desktop", "quota-usage", "accounts-list",
+            "mcp-list", "mcp-call", "remote-desktop", "quota-usage", "accounts-list",
             "help", "commands", "history", "clear", "date", "uptime", "uname", "whoami",
             "id", "hostname", "env", "export", "unset", "alias", "unalias", "ps",
             "free", "getprop", "sleep", "time", "which", "true", "false",
@@ -94,7 +94,7 @@ class AntigravityShellEngine(
             return@withContext executeViaTermuxIntent(trimmed.removePrefix("termux-exec ").trim(), workingDir)
         }
 
-        val tokens = trimmed.split(Regex("\\s+"))
+        val tokens = trimmed.split(Regex("\s+"))
         val cmdName = tokens.firstOrNull() ?: ""
         val args = tokens.drop(1)
 
@@ -203,13 +203,6 @@ class AntigravityShellEngine(
                     "  2. github-mcp-remote (streamable-http) [8 tools]\n" +
                     "  3. filesystem-workspace-mcp (stdio) [5 tools]"
                 )
-                "offline-models" -> CommandOutput(
-                    trimmed, 0,
-                    "On-Device Offline Models (/Download/Antigravity/models):\n" +
-                    "  * gemini_nano_v2_int4.litertlm (LiteRT NPU) [READY]\n" +
-                    "  * gemma-3-4b-it-gpu-int4.bin (LiteRT GPU) [READY]\n" +
-                    "  * qwen2.5-coder-3b-instruct-q4_k_m.gguf (GGUF ARM64) [READY]"
-                )
                 "remote-desktop" -> CommandOutput(
                     trimmed, 0,
                     "Antigravity Remote Desktop & Remote Control:\n" +
@@ -222,11 +215,6 @@ class AntigravityShellEngine(
                     "  Gemini 4 Argon: 142 / 150 req (1.92M / 2.0M tok)\n" +
                     "  Gemini 3.8 Flash: 980 / 1000 req\n" +
                     "  AI Credits Remaining: 485 / 500"
-                )
-                "agy-unlocker-status" -> CommandOutput(
-                    trimmed, 0,
-                    "AgyUnlocker (ru.nanodev.antigravity.unlocker): ACTIVE\n" +
-                    "  Proxy: 127.0.0.1:53129 | Patch: ineligible->inexigible | DoH: Cloudflare+Google IPv4"
                 )
                 "uname" -> CommandOutput(
                     trimmed, 0,

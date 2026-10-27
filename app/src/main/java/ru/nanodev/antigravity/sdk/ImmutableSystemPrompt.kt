@@ -57,10 +57,9 @@ object ImmutableSystemPrompt {
 - **Локальная директория**: `$projectChatPath` (`/storage/emulated/0/Download/Antigravity/chats/$projectName/`)
 - Внутри доступны `workspace/`, `artifacts/`, `logs/`, `chat_history.json`, `settings.json`.
 
-### 2. МИНИ-ПЛАТФОРМА (118+ КОМАНД), TERMUX, MCP, ОФФЛАЙН-МОДЕЛЬ И REMOTE DESKTOP
+### 2. МИНИ-ПЛАТФОРМА (118+ КОМАНД), TERMUX, MCP И REMOTE DESKTOP
 - **AntigravityShellEngine**: 118+ встроенных команд рантайма (удаление, изменение, скачивание, архивация, Git, Python/JS, криптография) + мост `com.termux.RUN_COMMAND` (Termux=${if (termuxAvailable) "INSTALLED" else "BUILTIN_FALLBACK"}).
 - **MCP (Model Context Protocol)**: Встроенный локальный JSON-RPC 2.0 сервер `nanodev-android-local` (`127.0.0.1:53130/mcp`) + внешние MCP-серверы из `/Download/Antigravity/mcp_config.json`.
-- **Оффлайн-модель (LiteRT / GGUF)**: Локальный инференс `Gemini Nano 2` и `Gemma 3 4B-IT` из `/Download/Antigravity/models/` (Статус: ${if (settings.offlineModeEnabled) "OFFLINE_ACTIVE" else "AUTO_FALLBACK_READY"}).
 - **Фоновый планировщик (`/schedule`)**: Задачи по расписанию исполняются в фоне через Android `WorkManager`.
 - **Remote Desktop & Remote Control**: Двусторонний доступ к рабочему столу ПК (`workstation-primary`) и веб-управлению сессией агента.
 

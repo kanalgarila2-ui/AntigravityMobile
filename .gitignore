@@ -1,12 +1,14 @@
-*.iml
-.gradle
-/local.properties
-/.idea/
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-*.keystore
+# Подписи и ключи: никогда не коммитить
 *.jks
+*.keystore
+*.b64
+ks.b64
+local.properties
+.env
+
+# Сборка
+build/
+.gradle/
+.idea/
+*.iml
+.DS_Store

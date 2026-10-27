@@ -1,5 +1,6 @@
 package ru.nanodev.antigravity.sdk
 
+import ru.nanodev.antigravity.net.Connectivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,7 +61,7 @@ class QuotaLimitsMonitor {
         periodicJob?.cancel()
         periodicJob = scope.launch {
             while (isActive) {
-                refreshLimitsNow(getSettings(), reason = "auto_5min_timer")
+                if (Connectivity.online.value) refreshLimitsNow(getSettings(), reason = "auto_5min_timer")
                 var remainingSec = 300
                 while (remainingSec > 0 && isActive) {
                     delay(1000L)
@@ -130,15 +131,6 @@ class QuotaLimitsMonitor {
                     remainingTokens = 1_850_000L,
                     maxTokens = 2_000_000L,
                     resetInMinutes = 24
-                ),
-                ModelQuotaItem(
-                    modelId = "litert-gemini-nano-ondevice",
-                    modelLabel = "LiteRT Offline (On-Device)",
-                    remainingRequests = 999999,
-                    maxRequests = 999999,
-                    remainingTokens = 999_999_999L,
-                    maxTokens = 999_999_999L,
-                    resetInMinutes = 0
                 )
             )
         )

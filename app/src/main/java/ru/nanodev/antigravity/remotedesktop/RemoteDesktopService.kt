@@ -1,6 +1,7 @@
 package ru.nanodev.antigravity.remotedesktop
 
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +74,12 @@ class RemoteDesktopService : Service() {
     companion object {
         private val _state = MutableStateFlow(RemoteDesktopState())
         val state: StateFlow<RemoteDesktopState> = _state
+
+        /** Beta: запуск/остановка хоста. По умолчанию выключено. */
+        fun setEnabled(context: Context, enabled: Boolean) {
+            val intent = Intent(context, RemoteDesktopService::class.java)
+            if (enabled) context.startService(intent) else context.stopService(intent)
+        }
 
         fun connectToWorkstation(nodeId: String) {
             val current = _state.value

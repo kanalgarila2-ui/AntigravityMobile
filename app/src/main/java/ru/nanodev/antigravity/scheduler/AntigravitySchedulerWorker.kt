@@ -45,13 +45,10 @@ class AntigravitySchedulerWorker(
         val projectName = inputData.getString("project_name") ?: "default-project"
         val prompt = inputData.getString("prompt") ?: "/goal check status"
 
-        val downloads = android.os.Environment.getExternalStoragePublicDirectory(
-            android.os.Environment.DIRECTORY_DOWNLOADS
-        )
-        val logFile = File(downloads, "Antigravity/chats/$projectName/logs/scheduled_runs.log")
+        val logFile = File(File(applicationContext.getExternalFilesDir(null) ?: applicationContext.filesDir, "Antigravity"), "chats/$projectName/logs/scheduled_runs.log")
         logFile.parentFile?.mkdirs()
         val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        logFile.appendText("[$stamp] [WorkManager:$taskId] Executed scheduled prompt: $prompt\n")
+        runCatching { logFile.appendText("[$stamp] [WorkManager:$taskId] Executed scheduled prompt: $prompt\n") }
 
         return Result.success()
     }
@@ -164,10 +161,7 @@ class ScheduleManager(private val context: Context, private val rootDir: File) {
 class ScheduleBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val downloads = android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_DOWNLOADS
-            )
-            val root = File(downloads, "Antigravity")
+            val root = File(context.getExternalFilesDir(null) ?: context.filesDir, "Antigravity")
             val mgr = ScheduleManager(context, root)
             mgr.loadTasks().filter { it.enabled }.forEach { mgr.enqueueInWorkManager(it) }
         }

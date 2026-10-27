@@ -48,16 +48,13 @@ class DownloadsProjectManager(private val context: Context) {
 
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true; encodeDefaults = true }
 
+    /**
+     * Корень данных приложения. Папка приложения на внешнем хранилище: писать в неё
+     * можно без разрешений. Общая папка Downloads на Android 11+ без доступа ко всем файлам недоступна.
+     */
     fun getAntigravityRootDir(): File {
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val root = File(downloadsDir, "Antigravity")
-        if (!root.exists()) root.mkdirs()
-        if (!root.canWrite()) {
-            val fallback = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "Antigravity")
-            fallback.mkdirs()
-            return fallback
-        }
-        return root
+        val base = context.getExternalFilesDir(null) ?: context.filesDir
+        return File(base, "Antigravity").apply { mkdirs() }
     }
 
     fun getChatsRootDir(): File = File(getAntigravityRootDir(), "chats").apply { mkdirs() }
@@ -133,7 +130,7 @@ class DownloadsProjectManager(private val context: Context) {
             geminiApiKey = "",
             accounts = settings.accounts.map { it.copy(customApiKey = "", oauthAccessToken = "") }
         )
-        File(getAntigravityRootDir(), "settings.json").writeText(json.encodeToString(safe))
+        runCatching { File(getAntigravityRootDir(), "settings.json").writeText(json.encodeToString(safe)) }
     }
 
     fun loadGlobalSettings(): AntigravitySettings {

@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -26,6 +27,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun CrashReportScreen(report: String, onDismiss: () -> Unit) {
     val clipboard = LocalClipboardManager.current
+    // Экран открыт на переднем плане, поэтому копирование здесь разрешено
+    LaunchedEffect(report) { clipboard.setText(AnnotatedString(report)) }
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text(
             "Приложение упало в прошлый раз",
@@ -34,7 +37,7 @@ fun CrashReportScreen(report: String, onDismiss: () -> Unit) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "Скопируйте текст ниже и отправьте разработчику.",
+            "Текст ошибки уже скопирован в буфер обмена. Вставьте его в сообщение разработчику.",
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

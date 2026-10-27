@@ -78,11 +78,17 @@ class McpServerEngine(private val context: Context, private val rootAntigravityD
         )
     )
 
-    private val _externalServers = MutableStateFlow(loadExternalServers())
+    // Поток создаётся пустым: загрузка пишет в него и не может идти в инициализаторе,
+    // иначе NPE при первом запуске (поле ещё не создано).
+    private val _externalServers = MutableStateFlow<List<ExternalMcpServerConfig>>(emptyList())
     val externalServers: StateFlow<List<ExternalMcpServerConfig>> = _externalServers
 
     private val _allTools = MutableStateFlow(builtInAndroidMcpTools)
     val allTools: StateFlow<List<McpToolDescriptor>> = _allTools
+
+    init {
+        _externalServers.value = loadExternalServers()
+    }
 
     private fun getMcpConfigFile(): File = File(rootAntigravityDir, "mcp_config.json")
 

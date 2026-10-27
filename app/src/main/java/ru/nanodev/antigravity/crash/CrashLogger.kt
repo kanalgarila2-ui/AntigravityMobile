@@ -1,6 +1,8 @@
 package ru.nanodev.antigravity.crash
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import java.io.File
@@ -47,5 +49,10 @@ object CrashLogger {
             append(stack)
         }
         file(context).writeText(text)
+        // Пробуем сразу положить в буфер; Android может не разрешить из фона, тогда экран скопирует при запуске
+        runCatching {
+            context.getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText("Antigravity crash", text))
+        }
     }
 }

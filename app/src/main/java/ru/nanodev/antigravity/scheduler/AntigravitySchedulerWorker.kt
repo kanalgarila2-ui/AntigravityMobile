@@ -62,8 +62,13 @@ class ScheduleManager(private val context: Context, private val rootDir: File) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
     private val scheduleFile = File(rootDir, "schedules.json")
 
-    private val _tasks = MutableStateFlow(loadTasks())
+    // Поток создаётся пустым: загрузка пишет в него, поэтому не в инициализаторе (иначе NPE).
+    private val _tasks = MutableStateFlow<List<ScheduledAgentTask>>(emptyList())
     val tasks: StateFlow<List<ScheduledAgentTask>> = _tasks
+
+    init {
+        _tasks.value = loadTasks()
+    }
 
     fun loadTasks(): List<ScheduledAgentTask> {
         if (scheduleFile.exists()) {

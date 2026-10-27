@@ -1,5 +1,0 @@
--keepattributes *Annotation*,InnerClasses,Signature
--keep class ru.nanodev.antigravity.** { *; }
--dontwarn okhttp3.**
--dontwarn org.vosk.**
--dontwarn com.google.mediapipe.**

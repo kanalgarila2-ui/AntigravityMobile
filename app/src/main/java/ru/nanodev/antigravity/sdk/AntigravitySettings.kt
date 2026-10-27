@@ -80,7 +80,7 @@ data class AntigravitySettings(
     val gcpLocation: String = "us-central1",
 
     // Модели (подгружаются по API)
-    val selectedModel: String = "gemini-4-argon",
+    val selectedModel: String = "gemini-3.8-flash",
     val thinkingLevel: String = "HIGH",
 
     // MCP & Remote Desktop

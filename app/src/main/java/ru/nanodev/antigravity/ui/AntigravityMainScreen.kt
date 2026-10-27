@@ -1,31 +1,42 @@
 package ru.nanodev.antigravity.ui
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
-import androidx.compose.foundation.layout.offset
-import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.layout.RowScope
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,34 +45,42 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.DesktopWindows
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -72,29 +91,47 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Request
+import ru.nanodev.antigravity.auth.ApiKeyStore
+import ru.nanodev.antigravity.auth.GoogleResult
+import ru.nanodev.antigravity.auth.GoogleSignIn
 import ru.nanodev.antigravity.mcp.McpServerEngine
 import ru.nanodev.antigravity.net.Connectivity
+import ru.nanodev.antigravity.net.GeminiApi
 import ru.nanodev.antigravity.remotedesktop.RemoteDesktopService
 import ru.nanodev.antigravity.runtime.AntigravityShellEngine
 import ru.nanodev.antigravity.scheduler.ScheduleManager
@@ -111,20 +148,69 @@ import ru.nanodev.antigravity.ui.theme.GlassCornerRadius
 import ru.nanodev.antigravity.ui.theme.glass
 import ru.nanodev.antigravity.voice.BilingualVoiceEngine
 import java.io.File
+import java.util.Locale
 import java.util.UUID
 
-private enum class Tab(val label: String) {
-    CHAT("Чат"), TERMINAL("Терминал"), REMOTE("Remote"), TOOLS("Инструменты"), SETTINGS("Настройки")
+/** Экраны приложения. Нижних вкладок нет: навигация через левую панель. */
+enum class AgScreen { CHAT, TERMINAL, TOOLS, REMOTE, SETTINGS }
+
+/** Модель по умолчанию. */
+const val DEFAULT_MODEL_ID = "gemini-3.8-flash"
+
+/** gemini-3.8-flash -> Gemini 3.8 Flash */
+fun modelTitle(id: String): String =
+    id.removePrefix("models/").split("-").joinToString(" ") { part ->
+        part.replaceFirstChar { it.uppercase(Locale.ROOT) }
+    }
+
+private fun initials(name: String?, email: String?): String {
+    val source = name?.takeIf { it.isNotBlank() } ?: email?.substringBefore("@").orEmpty()
+    val parts = source.split(" ", ".", "_", "-").filter { it.isNotBlank() }
+    return when {
+        parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}".uppercase(Locale.ROOT)
+        parts.size == 1 -> parts[0].take(1).uppercase(Locale.ROOT)
+        else -> "?"
+    }
 }
 
-/**
- * Главный экран после входа. Чаты и история читаются с диска и работают без сети.
- * Без сети блокируется только отправка запроса к модели.
- */
+private fun loadPhoto(url: String): ImageBitmap? = runCatching {
+    GeminiApi.client.newCall(Request.Builder().url(url).build()).execute().use { resp ->
+        val bytes = resp.body?.bytes() ?: return@use null
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    }
+}.getOrNull()
+
+@Composable
+private fun Avatar(name: String?, email: String?, photoUrl: String?, size: Dp) {
+    val bitmap by produceState<ImageBitmap?>(initialValue = null, photoUrl) {
+        value = if (photoUrl.isNullOrBlank()) null else withContext(Dispatchers.IO) { loadPhoto(photoUrl) }
+    }
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        val bm = bitmap
+        if (bm != null) {
+            Image(bitmap = bm, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Text(
+                initials(name, email),
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                fontWeight = FontWeight.Bold,
+                fontSize = (size.value / 2.6f).sp
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AntigravityMainScreen(
     projectManager: DownloadsProjectManager,
+    keyStore: ApiKeyStore,
     shellEngine: AntigravityShellEngine,
     voiceEngine: BilingualVoiceEngine,
     mcpEngine: McpServerEngine,
@@ -137,6 +223,7 @@ fun AntigravityMainScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val online by Connectivity.online.collectAsState()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     var settings by remember { mutableStateOf(projectManager.loadGlobalSettings()) }
     fun persist(next: AntigravitySettings) {
@@ -144,19 +231,21 @@ fun AntigravityMainScreen(
         scope.launch(Dispatchers.IO) { projectManager.saveGlobalSettings(next) }
     }
 
+    var projects by remember { mutableStateOf(projectManager.listProjects()) }
     var session by remember {
-        mutableStateOf(
-            projectManager.listProjects().maxByOrNull { it.updatedAt }
-                ?: projectManager.createOrOpenProjectChat("Личный")
-        )
+        mutableStateOf(projects.maxByOrNull { it.updatedAt } ?: projectManager.createOrOpenProjectChat("Личный"))
     }
-    var tabIndex by rememberSaveable { mutableIntStateOf(0) }
-    val tab = Tab.entries[tabIndex]
-
+    var screen by rememberSaveable { mutableStateOf(AgScreen.CHAT) }
     var input by rememberSaveable { mutableStateOf("") }
     var running by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var showProjects by remember { mutableStateOf(false) }
+
+    var googleEmail by remember { mutableStateOf(keyStore.googleEmail) }
+    var googleName by remember { mutableStateOf(keyStore.googleName) }
+    var googlePhoto by remember { mutableStateOf(keyStore.googlePhoto) }
+    var accountBusy by remember { mutableStateOf(false) }
+    var accountError by remember { mutableStateOf<String?>(null) }
+    var showAccount by remember { mutableStateOf(false) }
 
     val listening by voiceEngine.isListening.collectAsState()
     val models by modelRegistry.models.collectAsState()
@@ -166,6 +255,19 @@ fun AntigravityMainScreen(
 
     fun saveSession(s: ProjectChatSession) {
         scope.launch(Dispatchers.IO) { projectManager.saveProjectSession(s) }
+    }
+
+    fun openProject(p: ProjectChatSession) {
+        session = p
+        screen = AgScreen.CHAT
+        scope.launch { drawerState.close() }
+    }
+
+    fun newProject(name: String) {
+        session = projectManager.createOrOpenProjectChat(name)
+        projects = projectManager.listProjects()
+        screen = AgScreen.CHAT
+        scope.launch { drawerState.close() }
     }
 
     fun send() {
@@ -206,135 +308,431 @@ fun AntigravityMainScreen(
         }
     }
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                title = {
-                    Column {
-                        Text(
-                            if (tab == Tab.CHAT) session.projectName else tab.label,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onBackground
+    fun changeAccount() {
+        if (accountBusy) return
+        accountBusy = true
+        accountError = null
+        scope.launch {
+            when (val r = GoogleSignIn.signIn(context)) {
+                is GoogleResult.Success -> {
+                    keyStore.saveGoogleAccount(r.email, r.name, r.photoUrl)
+                    googleEmail = r.email
+                    googleName = r.name
+                    googlePhoto = r.photoUrl
+                }
+                is GoogleResult.Failed -> accountError = r.reason
+                GoogleResult.Cancelled -> Unit
+                GoogleResult.NotConfigured -> accountError = "Google-вход не настроен"
+            }
+            accountBusy = false
+        }
+    }
+
+    fun signOutGoogle() {
+        keyStore.forgetGoogleAccount()
+        googleEmail = null
+        googleName = null
+        googlePhoto = null
+        showAccount = false
+    }
+
+    val modelOptions = (listOf(settings.selectedModel) + models.map { it.id })
+        .filter { it.isNotBlank() }
+        .distinct()
+        .map { it to modelTitle(it) }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(modifier = Modifier.widthIn(max = 320.dp)) {
+                DrawerContent(
+                    projects = projects,
+                    activeFolder = session.folderPath,
+                    current = screen,
+                    onOpenProject = { openProject(it) },
+                    onNewProject = { newProject(it) },
+                    onScreen = { target ->
+                        screen = target
+                        scope.launch { drawerState.close() }
+                    },
+                    onOpenSettings = {
+                        screen = AgScreen.SETTINGS
+                        scope.launch { drawerState.close() }
+                    },
+                    googleEmail = googleEmail,
+                    googleName = googleName,
+                    googlePhoto = googlePhoto,
+                    onAccount = { showAccount = true }
+                )
+            }
+        }
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                        navigationIcon = {
+                            if (screen == AgScreen.CHAT) {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Меню")
+                                }
+                            } else {
+                                IconButton(onClick = { screen = AgScreen.CHAT }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
+                                }
+                            }
+                        },
+                        title = {
+                            Column {
+                                Text(
+                                    when (screen) {
+                                        AgScreen.CHAT -> session.projectName
+                                        AgScreen.TERMINAL -> "Терминал"
+                                        AgScreen.TOOLS -> "Инструменты"
+                                        AgScreen.REMOTE -> "Remote"
+                                        AgScreen.SETTINGS -> "Настройки"
+                                    },
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                if (screen == AgScreen.CHAT) {
+                                    Text(
+                                        if (online) "Онлайн" else "Офлайн: только просмотр",
+                                        fontSize = 11.sp,
+                                        color = if (online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
+            ) { padding ->
+                AnimatedContent(
+                    targetState = screen,
+                    modifier = Modifier.padding(padding).fillMaxSize(),
+                    transitionSpec = {
+                        val forward = targetState.ordinal > initialState.ordinal
+                        val inSpec = if (forward) AgAnim.TAB_CONTENT_SLIDE_LEFT else AgAnim.TAB_CONTENT_SLIDE_RIGHT
+                        (fadeIn(inSpec.spec<Float>()) +
+                            slideInHorizontally(inSpec.spec<IntOffset>()) { if (forward) it / 8 else -it / 8 }) togetherWith
+                            fadeOut(AgAnim.TAB_CONTENT_FADE.spec<Float>())
+                    },
+                    label = "screens"
+                ) { current ->
+                    when (current) {
+                        AgScreen.CHAT -> ChatPane(
+                            session = session,
+                            online = online,
+                            running = running,
+                            input = input,
+                            error = error,
+                            listening = listening,
+                            modelId = settings.selectedModel,
+                            modelOptions = modelOptions,
+                            onPickModel = { id -> persist(settings.copy(selectedModel = id)) },
+                            onInput = { input = it },
+                            onSend = { send() },
+                            onMic = { toggleMic() }
                         )
-                        if (tab == Tab.CHAT) {
+                        AgScreen.TERMINAL -> TerminalPane(shellEngine, session, settings)
+                        AgScreen.TOOLS -> ToolsPane(
+                            creditsLeft = quota.aiCreditsRemaining,
+                            creditsMax = quota.aiCreditsMax,
+                            servers = servers.map { "${it.name} · ${it.transport} · ${if (it.enabled) "вкл" else "выкл"}" },
+                            tasks = tasks.map { it.id to "${it.title} · ${it.lastRunStatus}" },
+                            onRunTask = { scheduleManager.runTaskImmediately(it) }
+                        )
+                        AgScreen.REMOTE -> RemotePane(
+                            enabled = settings.remoteControlHostEnabled,
+                            onEnable = { on ->
+                                persist(settings.copy(remoteControlHostEnabled = on))
+                                RemoteDesktopService.setEnabled(context, on)
+                            }
+                        )
+                        AgScreen.SETTINGS -> SettingsPane(
+                            settings = settings,
+                            models = modelOptions,
+                            onChange = { persist(it) },
+                            onRefreshModels = { scope.launch { modelRegistry.refreshModelsFromApi(settings) } },
+                            onLogout = onLogout
+                        )
+                    }
+                }
+            }
+
+            // Оверлей аккаунта: затемнение и карточка снизу
+            AnimatedVisibility(
+                visible = showAccount,
+                enter = fadeIn(AgAnim.DIALOG_SCRIM_FADE.spec<Float>()),
+                exit = fadeOut(AgAnim.DIALOG_EXIT.spec<Float>())
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.45f))
+                        .clickable { showAccount = false }
+                )
+            }
+            AnimatedVisibility(
+                visible = showAccount,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(AgAnim.SHEET_EXPAND.spec<IntOffset>()) { it } +
+                    scaleIn(AgAnim.DIALOG_SCALE_IN.spec<Float>()),
+                exit = slideOutVertically(AgAnim.DIALOG_EXIT.spec<IntOffset>()) { it } +
+                    fadeOut(AgAnim.DIALOG_EXIT.spec<Float>())
+            ) {
+                AccountCard(
+                    name = googleName,
+                    email = googleEmail,
+                    photo = googlePhoto,
+                    busy = accountBusy,
+                    error = accountError,
+                    onChange = { changeAccount() },
+                    onSignOut = { signOutGoogle() },
+                    onClose = { showAccount = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountCard(
+    name: String?,
+    email: String?,
+    photo: String?,
+    busy: Boolean,
+    error: String?,
+    onChange: () -> Unit,
+    onSignOut: () -> Unit,
+    onClose: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .glass(RoundedCornerShape(GlassCornerRadius), alpha = 0.16f)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.92f))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Avatar(name, email, photo, 52.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(name ?: "Аккаунт не выбран", fontWeight = FontWeight.SemiBold)
+                Text(
+                    email ?: "Вход через Google не выполнен",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onClose) { Icon(Icons.Default.Check, contentDescription = "Закрыть") }
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp) }
+        OutlinedButton(onClick = onChange, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.SwitchAccount, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (busy) "Вход…" else "Сменить аккаунт")
+        }
+        if (email != null) {
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Выйти из аккаунта")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerContent(
+    projects: List<ProjectChatSession>,
+    activeFolder: String,
+    current: AgScreen,
+    onOpenProject: (ProjectChatSession) -> Unit,
+    onNewProject: (String) -> Unit,
+    onScreen: (AgScreen) -> Unit,
+    onOpenSettings: () -> Unit,
+    googleEmail: String?,
+    googleName: String?,
+    googlePhoto: String?,
+    onAccount: () -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf<String?>(null) }
+    var newName by rememberSaveable { mutableStateOf("") }
+    val entered = remember { MutableTransitionState(false).apply { targetState = true } }
+
+    AnimatedVisibility(
+        visibleState = entered,
+        enter = slideInHorizontally(AgAnim.DRAWER_SLIDE.spec<IntOffset>()) { -it / 4 } +
+            fadeIn(AgAnim.DRAWER_SLIDE.spec<Float>())
+    ) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Antigravity", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Default.Settings, contentDescription = "Настройки")
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "Проекты",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+            LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(projects, key = { it.folderPath }) { p ->
+                    val isOpen = expanded == p.folderPath
+                    Column {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { expanded = if (isOpen) null else p.folderPath }
+                                .padding(horizontal = 10.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
                             Text(
-                                if (online) "Онлайн" else "Офлайн: только просмотр",
-                                fontSize = 11.sp,
-                                color = if (online) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                p.projectName,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                fontWeight = if (p.folderPath == activeFolder) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            Icon(
+                                if (isOpen) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
-                },
-                actions = {
-                    if (tab == Tab.CHAT) {
-                        IconButton(onClick = { showProjects = true }) {
-                            Icon(Icons.Default.Folder, contentDescription = "Проекты")
+                        AnimatedVisibility(
+                            visible = isOpen,
+                            enter = expandVertically(AgAnim.SETTINGS_SECTION_EXPAND.spec<IntSize>()) +
+                                fadeIn(AgAnim.SETTINGS_SECTION_EXPAND.spec<Float>()),
+                            exit = shrinkVertically(AgAnim.SETTINGS_SECTION_EXPAND.spec<IntSize>()) +
+                                fadeOut(AgAnim.SETTINGS_SECTION_EXPAND.spec<Float>())
+                        ) {
+                            Column(Modifier.padding(start = 34.dp, bottom = 6.dp)) {
+                                Row(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onOpenProject(p) }
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Открыть чат", fontSize = 13.sp)
+                                }
+                                Text(
+                                    "Папка: ${p.folderPath.substringAfterLast('/')}",
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
-            )
-        },
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)) {
-                NavItem(Tab.CHAT, tabIndex, Icons.Default.Chat) { tabIndex = it }
-                NavItem(Tab.TERMINAL, tabIndex, Icons.Default.Terminal) { tabIndex = it }
-                NavItem(Tab.REMOTE, tabIndex, Icons.Default.DesktopWindows) { tabIndex = it }
-                NavItem(Tab.TOOLS, tabIndex, Icons.Default.Build) { tabIndex = it }
-                NavItem(Tab.SETTINGS, tabIndex, Icons.Default.Settings) { tabIndex = it }
             }
-        }
-    ) { padding ->
-        AnimatedContent(
-            targetState = tab,
-            modifier = Modifier.padding(padding).fillMaxSize(),
-            transitionSpec = {
-                val dir = if (targetState.ordinal > initialState.ordinal) 1 else -1
-                (fadeIn(AgAnim.TAB_CONTENT_SLIDE_LEFT.spec<Float>()) +
-                    slideInVertically((if (dir > 0) AgAnim.TAB_CONTENT_SLIDE_LEFT else AgAnim.TAB_CONTENT_SLIDE_RIGHT).spec<IntOffset>()) { it / 12 * dir }) togetherWith
-                    fadeOut(AgAnim.TAB_CONTENT_FADE.spec<Float>())
-            },
-            label = "tabs"
-        ) { current ->
-            when (current) {
-                Tab.CHAT -> ChatPane(
-                    session = session,
-                    online = online,
-                    running = running,
-                    input = input,
-                    error = error,
-                    listening = listening,
-                    onInput = { input = it },
-                    onSend = { send() },
-                    onMic = { toggleMic() }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Новый проект") }
                 )
-                Tab.TERMINAL -> TerminalPane(shellEngine, projectManager, session, settings)
-                Tab.REMOTE -> RemotePane(
-                    enabled = settings.remoteControlHostEnabled,
-                    onEnable = { on ->
-                        persist(settings.copy(remoteControlHostEnabled = on))
-                        RemoteDesktopService.setEnabled(context, on)
+                AnimatedVisibility(
+                    visible = newName.isNotBlank(),
+                    enter = fadeIn(AgAnim.CHAT_PROJECT_SHEET_SLIDE.spec<Float>()) +
+                        slideInHorizontally(AgAnim.CHAT_PROJECT_SHEET_SLIDE.spec<IntOffset>()) { it / 2 }
+                ) {
+                    IconButton(onClick = {
+                        onNewProject(newName.trim())
+                        newName = ""
+                    }) {
+                        Icon(Icons.Default.Add, contentDescription = "Создать проект")
                     }
-                )
-                Tab.TOOLS -> ToolsPane(
-                    creditsLeft = quota.aiCreditsRemaining,
-                    creditsMax = quota.aiCreditsMax,
-                    servers = servers.map { "${it.name} · ${it.transport} · ${if (it.enabled) "вкл" else "выкл"}" },
-                    tasks = tasks.map { it.id to "${it.title} · ${it.lastRunStatus}" },
-                    onRunTask = { scheduleManager.runTaskImmediately(it) }
-                )
-                Tab.SETTINGS -> SettingsPane(
-                    settings = settings,
-                    models = models.map { it.id to it.displayName },
-                    onChange = { persist(it) },
-                    onRefreshModels = {
-                        scope.launch { modelRegistry.refreshModelsFromApi(settings) }
-                    },
-                    onLogout = onLogout
-                )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            DrawerItem("Терминал", Icons.Default.Terminal, current == AgScreen.TERMINAL) { onScreen(AgScreen.TERMINAL) }
+            DrawerItem("Инструменты", Icons.Default.Build, current == AgScreen.TOOLS) { onScreen(AgScreen.TOOLS) }
+            DrawerItem("Remote (Beta)", Icons.Default.DesktopWindows, current == AgScreen.REMOTE) { onScreen(AgScreen.REMOTE) }
+
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { onAccount() }
+                    .padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Avatar(googleName, googleEmail, googlePhoto, 40.dp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(googleName ?: "Войти в аккаунт", maxLines = 1, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(
+                        googleEmail ?: "Нажмите, чтобы выбрать аккаунт",
+                        maxLines = 1,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(Icons.Default.SwitchAccount, contentDescription = "Аккаунт", modifier = Modifier.size(20.dp))
             }
         }
     }
+}
 
-    if (showProjects) {
-        ProjectsSheet(
-            projects = projectManager.listProjects(),
-            onPick = { picked ->
-                session = picked
-                showProjects = false
-            },
-            onCreate = { name ->
-                session = projectManager.createOrOpenProjectChat(name)
-                showProjects = false
-            },
-            onDismiss = { showProjects = false }
-        )
+@Composable
+private fun DrawerItem(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(if (pressed) 0.97f else 1f, AgAnim.CARD_PRESS_SCALE.spec<Float>(), label = "press")
+    val background by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        AgAnim.NAV_INDICATOR_MORPH.spec<Color>(),
+        label = "indicator"
+    )
+    val iconScale by animateFloatAsState(if (selected) 1.12f else 1f, AgAnim.NAV_ICON_BOUNCE.spec<Float>(), label = "icon")
+    val labelAlpha by animateFloatAsState(if (selected) 1f else 0.75f, AgAnim.NAV_LABEL_FADE.spec<Float>(), label = "label")
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .scale(pressScale)
+            .clip(RoundedCornerShape(12.dp))
+            .background(background)
+            .clickable(interactionSource = source, indication = null) { onClick() }
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp).scale(iconScale))
+        Spacer(Modifier.width(10.dp))
+        Text(label, fontSize = 14.sp, modifier = Modifier.alpha(labelAlpha))
     }
 }
 
 @Composable
-private fun RowScope.NavItem(
-    item: Tab,
-    selectedIndex: Int,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onSelect: (Int) -> Unit
-) {
-    val selected = selectedIndex == item.ordinal
-    val iconScale by animateFloatAsState(if (selected) 1.12f else 1f, AgAnim.NAV_ICON_BOUNCE.spec<Float>(), label = "navscale")
-    val labelAlpha by animateFloatAsState(if (selected) 1f else 0.7f, AgAnim.NAV_LABEL_FADE.spec<Float>(), label = "navalpha")
-    NavigationBarItem(
-        selected = selected,
-        onClick = { onSelect(item.ordinal) },
-        icon = { Icon(icon, contentDescription = item.label, modifier = Modifier.scale(iconScale)) },
-        label = { Text(item.label, fontSize = 10.sp, modifier = Modifier.alpha(labelAlpha)) },
-        colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer)
-    )
-}
-
-@Composable
-private fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun GlassCard(modifier: Modifier = Modifier, alpha: Float = 0.10f, content: @Composable () -> Unit) {
     val entered = remember { MutableTransitionState(false).apply { targetState = true } }
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val shimmer by transition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(AgAnim.GLASS_BORDER_SHIMMER.spec<Float>(), RepeatMode.Reverse),
+        label = "shimmer-alpha"
+    )
     AnimatedVisibility(
         visibleState = entered,
         modifier = modifier.fillMaxWidth(),
@@ -344,7 +742,7 @@ private fun GlassCard(modifier: Modifier = Modifier, content: @Composable () -> 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .glass(RoundedCornerShape(GlassCornerRadius))
+                .glass(RoundedCornerShape(GlassCornerRadius), alpha = alpha, shimmer = shimmer)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) { content() }
@@ -359,18 +757,28 @@ private fun ChatPane(
     input: String,
     error: String?,
     listening: Boolean,
+    modelId: String,
+    modelOptions: List<Pair<String, String>>,
+    onPickModel: (String) -> Unit,
     onInput: (String) -> Unit,
     onSend: () -> Unit,
     onMic: () -> Unit
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffectScroll(listState, session.messages.size)
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(session.messages.size) {
+        if (session.messages.isNotEmpty()) listState.animateScrollToItem(session.messages.size - 1)
+    }
+    val showScrollDown by remember { derivedStateOf { listState.canScrollForward } }
     val floatY by rememberInfiniteTransition(label = "float").animateFloat(
         initialValue = -6f,
         targetValue = 6f,
         animationSpec = infiniteRepeatable(AgAnim.EMPTY_STATE_FLOAT.spec<Float>(), RepeatMode.Reverse),
         label = "float-y"
     )
+    val inputSource = remember { MutableInteractionSource() }
+    val focused by inputSource.collectIsFocusedAsState()
+    val glow by animateFloatAsState(if (focused) 0.2f else 0.1f, AgAnim.CHAT_INPUT_FOCUS_GLOW.spec<Float>(), label = "glow")
 
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         AnimatedVisibility(
@@ -392,34 +800,61 @@ private fun ChatPane(
             }
         }
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp)
-        ) {
-            if (session.messages.isEmpty()) {
-                item {
-                    Column(
-                        Modifier.fillMaxWidth().padding(top = 48.dp).offset { IntOffset(0, floatY.roundToInt()) },
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Новый диалог", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                        Text("Введите запрос, !команда запускает shell", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                if (session.messages.isEmpty()) {
+                    item {
+                        Column(
+                            Modifier.fillMaxWidth().padding(top = 48.dp).offset { IntOffset(0, floatY.toInt()) },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Новый диалог", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                            Text("Введите запрос. Строка «!команда» запускает shell.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
                     }
                 }
+                items(session.messages, key = { it.id }) { msg -> Bubble(msg) }
+                if (running) {
+                    item { TypingIndicator() }
+                }
             }
-            items(session.messages, key = { it.id }) { msg -> Bubble(msg) }
-            if (running) {
-                item { TypingIndicator() }
+            AnimatedVisibility(
+                visible = showScrollDown,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+                enter = fadeIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()) + scaleIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()),
+                exit = fadeOut(AgAnim.CHAT_SCROLL_TO_END.spec<Float>())
+            ) {
+                IconButton(onClick = {
+                    if (session.messages.isNotEmpty()) {
+                        scope.launch { listState.animateScrollToItem(session.messages.size - 1) }
+                    }
+                }) {
+                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "К последнему сообщению")
+                }
             }
         }
 
-        if (error != null) {
-            Text(error, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+        AnimatedVisibility(
+            visible = error != null,
+            enter = fadeIn(AgAnim.SNACKBAR_SLIDE.spec<Float>()) +
+                slideInVertically(AgAnim.SNACKBAR_SLIDE.spec<IntOffset>()) { it / 2 },
+            exit = fadeOut(AgAnim.SNACKBAR_SLIDE.spec<Float>())
+        ) {
+            Text(
+                error.orEmpty(),
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
         }
 
-        GlassCard(Modifier.padding(bottom = 8.dp)) {
+        GlassCard(Modifier.padding(bottom = 8.dp), alpha = glow) {
+            ModelPicker(modelId, modelOptions, onPickModel)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = input,
@@ -427,6 +862,7 @@ private fun ChatPane(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text(if (online) "Сообщение агенту" else "Офлайн: отправка недоступна") },
                     enabled = online || input.startsWith("!"),
+                    interactionSource = inputSource,
                     maxLines = 4
                 )
                 val canSend = input.isNotBlank() && !running && (online || input.startsWith("!"))
@@ -444,7 +880,7 @@ private fun ChatPane(
                     Icon(if (listening) Icons.Default.MicOff else Icons.Default.Mic, contentDescription = "Голос", tint = micTint)
                 }
                 IconButton(onClick = onSend, enabled = canSend) {
-                    Icon(Icons.Default.Send, contentDescription = "Отправить", tint = sendTint)
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить", tint = sendTint)
                 }
             }
         }
@@ -452,9 +888,26 @@ private fun ChatPane(
 }
 
 @Composable
-private fun LaunchedEffectScroll(state: androidx.compose.foundation.lazy.LazyListState, count: Int) {
-    androidx.compose.runtime.LaunchedEffect(count) {
-        if (count > 0) state.animateScrollToItem(count - 1)
+private fun ModelPicker(modelId: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { open = true }) {
+            Text(modelTitle(modelId), fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Выбрать модель", modifier = Modifier.size(18.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (id, title) ->
+                DropdownMenuItem(
+                    text = { Text(title) },
+                    trailingIcon = { if (id == modelId) Icon(Icons.Default.Check, contentDescription = null) },
+                    onClick = {
+                        onPick(id)
+                        open = false
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -466,17 +919,13 @@ private fun TypingIndicator() {
         animationSpec = infiniteRepeatable(AgAnim.CHAT_TYPING_DOT.spec<Float>(), RepeatMode.Reverse),
         label = "typing-alpha"
     )
-    Text(
-        "Агент работает…",
-        color = MaterialTheme.colorScheme.primary,
-        fontSize = 12.sp,
-        modifier = Modifier.alpha(alpha)
-    )
+    Text("Агент работает…", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, modifier = Modifier.alpha(alpha))
 }
 
 @Composable
 private fun Bubble(msg: ChatMessage) {
     val isUser = msg.role == "user"
+    var traceOpen by remember { mutableStateOf(false) }
     val visible = remember { MutableTransitionState(false).apply { targetState = true } }
     AnimatedVisibility(
         visibleState = visible,
@@ -491,14 +940,23 @@ private fun Bubble(msg: ChatMessage) {
                 shape = RoundedCornerShape(20.dp),
                 color = if (isUser) MaterialTheme.colorScheme.primaryContainer
                 else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.widthIn(max = 320.dp)
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .animateContentSize(AgAnim.CHAT_BUBBLE_EXPAND.spec<IntSize>())
+                    .clickable(enabled = msg.thoughtTrace.isNotEmpty()) { traceOpen = !traceOpen }
             ) {
                 Column(Modifier.padding(12.dp)) {
                     if (msg.toolName.isNotEmpty()) {
                         Text(msg.toolName, fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
                     }
                     Text(msg.content, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                    if (msg.thoughtTrace.isNotEmpty()) {
+                    AnimatedVisibility(
+                        visible = traceOpen && msg.thoughtTrace.isNotEmpty(),
+                        enter = expandVertically(AgAnim.CHAT_TOOL_CARD_EXPAND.spec<IntSize>()) +
+                            fadeIn(AgAnim.CHAT_TOOL_CARD_EXPAND.spec<Float>()),
+                        exit = shrinkVertically(AgAnim.CHAT_TOOL_CARD_EXPAND.spec<IntSize>()) +
+                            fadeOut(AgAnim.CHAT_TOOL_CARD_EXPAND.spec<Float>())
+                    ) {
                         Text(msg.thoughtTrace, fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -510,19 +968,32 @@ private fun Bubble(msg: ChatMessage) {
 @Composable
 private fun TerminalPane(
     shellEngine: AntigravityShellEngine,
-    projectManager: DownloadsProjectManager,
     session: ProjectChatSession,
     settings: AntigravitySettings
 ) {
     val scope = rememberCoroutineScope()
     var cmd by rememberSaveable { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
     var lines by remember { mutableStateOf(listOf("Antigravity shell · введите команду")) }
+    val blink by rememberInfiniteTransition(label = "prompt").animateFloat(
+        initialValue = 1f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(AgAnim.TERMINAL_PROMPT_BLINK.spec<Float>(), RepeatMode.Reverse),
+        label = "prompt-blink"
+    )
+    val spin by rememberInfiniteTransition(label = "run").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(AgAnim.TOOL_RUN_SPIN.spec<Float>(), RepeatMode.Restart),
+        label = "run-spin"
+    )
 
     fun run() {
         val line = cmd.trim()
-        if (line.isEmpty()) return
+        if (line.isEmpty() || busy) return
         lines = lines + "$ $line"
         cmd = ""
+        busy = true
         scope.launch {
             val res = withContext(Dispatchers.IO) {
                 shellEngine.execute(
@@ -534,6 +1005,7 @@ private fun TerminalPane(
             val out = res.stdout.lines().filter { it.isNotBlank() }
             val err = res.stderr.lines().filter { it.isNotBlank() }.map { "[err] $it" }
             lines = lines + out + err
+            busy = false
         }
     }
 
@@ -541,7 +1013,10 @@ private fun TerminalPane(
         GlassCard(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(lines) { l ->
-                    Text(l, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    val appear = remember { MutableTransitionState(false).apply { targetState = true } }
+                    AnimatedVisibility(visibleState = appear, enter = fadeIn(AgAnim.TERMINAL_LINE_APPEAR.spec<Float>())) {
+                        Text(l, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
         }
@@ -552,10 +1027,15 @@ private fun TerminalPane(
                 onValueChange = { cmd = it },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
+                prefix = { Text("$ ", fontFamily = FontFamily.Monospace, modifier = Modifier.alpha(blink)) },
                 placeholder = { Text("ls -la, git status, python3 --version") }
             )
-            IconButton(onClick = { run() }, enabled = cmd.isNotBlank()) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Выполнить")
+            IconButton(onClick = { run() }, enabled = cmd.isNotBlank() && !busy) {
+                Icon(
+                    if (busy) Icons.Default.Refresh else Icons.Default.PlayArrow,
+                    contentDescription = "Выполнить",
+                    modifier = Modifier.rotate(if (busy) spin else 0f)
+                )
             }
         }
     }
@@ -599,26 +1079,32 @@ private fun ToolsPane(
     onRunTask: (String) -> Unit
 ) {
     val target = if (creditsMax > 0) creditsLeft.toFloat() / creditsMax.toFloat() else 0f
-    val animated by animateFloatAsState(
-        targetValue = target,
-        animationSpec = AgAnim.QUOTA_BAR_FILL.spec<Float>(),
-        label = "quota"
-    )
+    val smooth by animateFloatAsState(target, AgAnim.PROGRESS_LINEAR_SMOOTH.spec<Float>(), label = "progress")
+    val percent by animateFloatAsState(target * 100f, AgAnim.QUOTA_BAR_FILL.spec<Float>(), label = "percent")
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         GlassCard {
             Text("AI Credits", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            LinearProgressIndicator(progress = { animated }, modifier = Modifier.fillMaxWidth())
-            Text("$creditsLeft / $creditsMax", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            LinearProgressIndicator(progress = { smooth }, modifier = Modifier.fillMaxWidth())
+            Text(
+                "$creditsLeft / $creditsMax · ${percent.toInt()}%",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         GlassCard {
             Text("MCP-серверы", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             if (servers.isEmpty()) {
                 Text("Внешние серверы не настроены", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            servers.forEach { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface) }
+            servers.forEach { row ->
+                val appear = remember { MutableTransitionState(false).apply { targetState = true } }
+                AnimatedVisibility(visibleState = appear, enter = fadeIn(AgAnim.TOOL_LIST_ENTER.spec<Float>())) {
+                    Text(row, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                }
+            }
         }
         GlassCard {
             Text("Расписание", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
@@ -626,10 +1112,19 @@ private fun ToolsPane(
                 Text("Задач нет", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             tasks.forEach { (id, label) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                    IconButton(onClick = { onRunTask(id) }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Запустить сейчас")
+                val appear = remember { MutableTransitionState(false).apply { targetState = true } }
+                val failed = label.contains("ошиб", ignoreCase = true) || label.contains("error", ignoreCase = true)
+                val labelColor by animateColorAsState(
+                    if (failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    AgAnim.TASK_STATUS_COLOR.spec<Color>(),
+                    label = "task-status"
+                )
+                AnimatedVisibility(visibleState = appear, enter = fadeIn(AgAnim.TOOL_LIST_ENTER.spec<Float>())) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, fontSize = 12.sp, color = labelColor, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { onRunTask(id) }) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = "Запустить сейчас")
+                        }
                     }
                 }
             }
@@ -652,6 +1147,7 @@ private fun SettingsPane(
         animationSpec = infiniteRepeatable(AgAnim.WARNING_BORDER_BLINK.spec<Float>(), RepeatMode.Reverse),
         label = "warn-alpha"
     )
+    val steps by animateFloatAsState(settings.maxAgentSteps.toFloat(), AgAnim.SLIDER_VALUE_TWEEN.spec<Float>(), label = "steps")
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -663,7 +1159,7 @@ private fun SettingsPane(
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedButton(onClick = onLogout) { Text("Сменить ключ / выйти") }
+            OutlinedButton(onClick = onLogout) { Text("Сменить ключ") }
         }
 
         GlassCard {
@@ -674,10 +1170,11 @@ private fun SettingsPane(
             models.chunked(2).forEach { pair ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     pair.forEach { (id, name) ->
-                        FilterChip(
+                        AnimChip(
                             selected = settings.selectedModel == id,
-                            onClick = { onChange(settings.copy(selectedModel = id)) },
-                            label = { Text(name, fontSize = 12.sp, maxLines = 1) }
+                            label = name,
+                            anim = AgAnim.MODEL_CHIP_SWAP,
+                            onClick = { onChange(settings.copy(selectedModel = id)) }
                         )
                     }
                 }
@@ -686,25 +1183,25 @@ private fun SettingsPane(
 
         GlassCard {
             Text("Разрешения", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-            Row(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 PermissionPreset.entries.forEach { p ->
-                    FilterChip(
+                    AnimChip(
                         selected = settings.permissionPreset == p,
-                        onClick = { onChange(settings.copy(permissionPreset = p)) },
-                        label = { Text(p.displayName, fontSize = 12.sp) }
+                        label = p.displayName,
+                        anim = AgAnim.CHIP_SELECT,
+                        onClick = { onChange(settings.copy(permissionPreset = p)) }
                     )
                 }
             }
-            Text(
-                settings.permissionPreset.description,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(settings.permissionPreset.description, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         GlassCard {
             Text(
-                "Лимит шагов: ${settings.maxAgentSteps}",
+                "Лимит шагов: ${steps.toInt()}",
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -739,7 +1236,11 @@ private fun SettingsPane(
 
         GlassCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error.copy(alpha = warnAlpha))
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = warnAlpha)
+                )
                 Spacer(Modifier.width(8.dp))
                 Text("Опасная зона", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error)
             }
@@ -753,14 +1254,35 @@ private fun SettingsPane(
 }
 
 @Composable
+private fun AnimChip(selected: Boolean, label: String, anim: AgAnim, onClick: () -> Unit) {
+    val chipScale by animateFloatAsState(if (selected) 1.04f else 1f, anim.spec<Float>(), label = "chip-scale")
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.scale(chipScale),
+        label = { Text(label, fontSize = 12.sp, maxLines = 1) }
+    )
+}
+
+@Composable
 private fun SwitchRow(
     title: String,
     checked: Boolean,
     onChecked: (Boolean) -> Unit,
     badge: (@Composable () -> Unit)? = null
 ) {
+    val rowBackground by animateColorAsState(
+        if (checked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f) else Color.Transparent,
+        AgAnim.TOGGLE_CARD_COLOR.spec<Color>(),
+        label = "toggle-bg"
+    )
+    val thumbScale by animateFloatAsState(if (checked) 1f else 0.94f, AgAnim.SWITCH_THUMB_SLIDE.spec<Float>(), label = "thumb")
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(rowBackground)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -771,47 +1293,6 @@ private fun SwitchRow(
                 badge()
             }
         }
-        Switch(checked = checked, onCheckedChange = onChecked)
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ProjectsSheet(
-    projects: List<ProjectChatSession>,
-    onPick: (ProjectChatSession) -> Unit,
-    onCreate: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var newName by rememberSaveable { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Проекты", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            LazyColumn(Modifier.fillMaxWidth().height(260.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(projects, key = { it.folderPath }) { p ->
-                    AssistChip(
-                        onClick = { onPick(p) },
-                        label = { Text(p.projectName, maxLines = 1) },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = newName,
-                    onValueChange = { newName = it },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    placeholder = { Text("Новый проект") }
-                )
-                IconButton(
-                    onClick = { if (newName.isNotBlank()) onCreate(newName.trim()) },
-                    enabled = newName.isNotBlank()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Создать")
-                }
-            }
-            Spacer(Modifier.height(24.dp))
-        }
+        Switch(checked = checked, onCheckedChange = onChecked, modifier = Modifier.scale(thumbScale))
     }
 }

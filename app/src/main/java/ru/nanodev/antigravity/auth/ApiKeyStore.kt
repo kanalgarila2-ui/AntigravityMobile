@@ -42,13 +42,18 @@ class ApiKeyStore(context: Context) {
 
     val googleEmail: String? get() = prefs?.getString(KEY_G_EMAIL, null)
     val googleName: String? get() = prefs?.getString(KEY_G_NAME, null)
+    val googlePhoto: String? get() = prefs?.getString(KEY_G_PHOTO, null)
 
-    fun saveGoogleAccount(email: String, name: String) {
-        prefs?.edit()?.putString(KEY_G_EMAIL, email)?.putString(KEY_G_NAME, name)?.apply()
+    fun saveGoogleAccount(email: String, name: String, photoUrl: String?) {
+        prefs?.edit()
+            ?.putString(KEY_G_EMAIL, email)
+            ?.putString(KEY_G_NAME, name)
+            ?.putString(KEY_G_PHOTO, photoUrl)
+            ?.apply()
     }
 
     fun forgetGoogleAccount() {
-        prefs?.edit()?.remove(KEY_G_EMAIL)?.remove(KEY_G_NAME)?.apply()
+        prefs?.edit()?.remove(KEY_G_EMAIL)?.remove(KEY_G_NAME)?.remove(KEY_G_PHOTO)?.apply()
     }
 
     private companion object {
@@ -56,5 +61,6 @@ class ApiKeyStore(context: Context) {
         const val KEY_API = "gemini_api_key"
         const val KEY_G_EMAIL = "google_email"
         const val KEY_G_NAME = "google_name"
+        const val KEY_G_PHOTO = "google_photo"
     }
 }

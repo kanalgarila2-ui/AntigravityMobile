@@ -12,7 +12,7 @@ import ru.nanodev.antigravity.BuildConfig
 
 /** Итог входа через Google. */
 sealed interface GoogleResult {
-    data class Success(val email: String, val name: String) : GoogleResult
+    data class Success(val email: String, val name: String, val photoUrl: String? = null) : GoogleResult
     data class Failed(val reason: String) : GoogleResult
     data object Cancelled : GoogleResult
     data object NotConfigured : GoogleResult
@@ -45,7 +45,11 @@ object GoogleSignIn {
                 credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
             ) {
                 val google = GoogleIdTokenCredential.createFrom(credential.data)
-                GoogleResult.Success(email = google.id, name = google.displayName.orEmpty())
+                GoogleResult.Success(
+                    email = google.id,
+                    name = google.displayName.orEmpty(),
+                    photoUrl = google.profilePictureUri?.toString()
+                )
             } else {
                 GoogleResult.Failed("Неожиданный тип учётных данных")
             }

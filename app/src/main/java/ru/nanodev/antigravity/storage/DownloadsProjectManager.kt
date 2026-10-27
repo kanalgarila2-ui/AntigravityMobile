@@ -138,13 +138,14 @@ class DownloadsProjectManager(private val context: Context) {
         if (file.exists()) {
             runCatching {
                 val loaded = json.decodeFromString<AntigravitySettings>(file.readText())
-                if (loaded.settingsSchemaVersion < 2) {
+                if (loaded.settingsSchemaVersion < 3) {
                     val store = ApiKeyStore(context)
                     // Старый ключ из settings.json переносим в зашифрованное хранилище
                     if (!store.hasKey && loaded.geminiApiKey.isNotBlank()) store.apiKey = loaded.geminiApiKey
                     val migrated = loaded.copy(
                         remoteControlHostEnabled = false,   // Remote Control — Beta, выключен по умолчанию
-                        settingsSchemaVersion = 2
+                        selectedModel = "gemini-3.8-flash",
+                        settingsSchemaVersion = 3
                     )
                     saveGlobalSettings(migrated)
                     return withStoredKey(migrated)

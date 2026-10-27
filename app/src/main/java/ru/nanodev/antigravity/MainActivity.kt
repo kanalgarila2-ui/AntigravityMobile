@@ -15,11 +15,11 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import ru.nanodev.antigravity.auth.ApiKeyStore
 import ru.nanodev.antigravity.crash.CrashLogger
 import ru.nanodev.antigravity.ui.crash.CrashReportScreen
@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
             if (isAuthed) {
                 AntigravityMainScreen(
                     projectManager = projectManager,
+                    keyStore = keyStore,
                     shellEngine = shellEngine,
                     voiceEngine = voiceEngine,
                     mcpEngine = mcpEngine,

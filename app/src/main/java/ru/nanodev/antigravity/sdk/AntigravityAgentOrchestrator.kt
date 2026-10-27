@@ -111,7 +111,7 @@ class AntigravityAgentOrchestrator(
             return@withContext out
         }
 
-        val modelId = settings.selectedModel.ifEmpty { "gemini-4-argon" }
+        val modelId = settings.selectedModel.ifEmpty { "gemini-3.8-flash" }
         val systemPrompt = ImmutableSystemPrompt.build(
             projectName = session.projectName,
             projectChatPath = session.folderPath,

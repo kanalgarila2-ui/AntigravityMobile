@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -103,7 +103,7 @@ fun AgBackdrop(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
  * «Liquid glass»: полупрозрачная заливка, светлая кромка и тонкий блик.
  * Визуальное приближение: настоящее размытие фона требует RenderEffect и грузит GPU.
  */
-fun Modifier.glass(shape: Shape, alpha: Float = 0.10f): Modifier = this
+fun Modifier.glass(shape: Shape, alpha: Float = 0.10f, shimmer: Float = 0.35f): Modifier = this
     .clip(shape)
     .background(
         Brush.verticalGradient(
@@ -117,7 +117,7 @@ fun Modifier.glass(shape: Shape, alpha: Float = 0.10f): Modifier = this
         width = 1.dp,
         brush = Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = 0.35f),
+                Color.White.copy(alpha = shimmer),
                 Color.Transparent,
                 Color.White.copy(alpha = 0.12f)
             )

@@ -45,6 +45,7 @@
     </queries>
 
     <application
+        android:name=".AgApp"
         android:allowBackup="false"
         android:label="Antigravity 2.0"
         android:icon="@mipmap/ic_launcher"

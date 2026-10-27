@@ -21,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import ru.nanodev.antigravity.auth.ApiKeyStore
+import ru.nanodev.antigravity.crash.CrashLogger
+import ru.nanodev.antigravity.ui.crash.CrashReportScreen
 import ru.nanodev.antigravity.mcp.McpServerEngine
 import ru.nanodev.antigravity.net.Connectivity
 import ru.nanodev.antigravity.phone.PhoneControlManager
@@ -93,7 +95,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             AgTheme {
                 AgBackdrop {
-                    AppRoot()
+                    // Если прошлый запуск упал, сначала показываем отчёт
+                    val crash = remember { mutableStateOf(CrashLogger.read(this@MainActivity)) }
+                    val report = crash.value
+                    if (report != null) {
+                        CrashReportScreen(
+                            report = report,
+                            onDismiss = {
+                                CrashLogger.clear(this@MainActivity)
+                                crash.value = null
+                            }
+                        )
+                    } else {
+                        AppRoot()
+                    }
                 }
             }
         }

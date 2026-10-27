@@ -38,3 +38,6 @@
 4. В GitHub: Settings → Secrets and variables → Actions → Variables → New repository variable. Имя `AG_GOOGLE_WEB_CLIENT_ID`, значение — Web Client ID. Это переменная, не секрет: Client ID публичный.
 
 Пока переменная не задана, кнопка Google неактивна и подписана «Google-вход не настроен».
+
+## Отчёт о падении
+Если приложение закрывается при запуске, оно теперь пишет текст ошибки в файл `Android/data/ru.nanodev.antigravity/files/crash.txt`. При следующем открытии вместо падения показывается экран с этим отчётом и кнопкой «Скопировать».

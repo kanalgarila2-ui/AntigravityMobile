@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Тема до первого кадра Compose: без белой вспышки при запуске -->
+    <style name="Theme.Antigravity" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ag_background</item>
+        <item name="android:statusBarColor">@color/ag_background</item>
+        <item name="android:navigationBarColor">@color/ag_background</item>
+    </style>
+</resources>

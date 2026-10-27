@@ -3,7 +3,7 @@ package ru.nanodev.antigravity.auth
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 
 /**
  * Хранилище API-ключа. Ключ лежит только в зашифрованных настройках приложения,
@@ -14,9 +14,9 @@ class ApiKeyStore(context: Context) {
 
     private val prefs: SharedPreferences? = runCatching {
         EncryptedSharedPreferences.create(
-            context,
             FILE_NAME,
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+            MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC),
+            context.applicationContext,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )

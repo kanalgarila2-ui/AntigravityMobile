@@ -139,7 +139,11 @@ import ru.nanodev.antigravity.auth.GoogleResult
 import ru.nanodev.antigravity.auth.GoogleSignIn
 import ru.nanodev.antigravity.mcp.McpServerEngine
 import ru.nanodev.antigravity.net.Connectivity
+import ru.nanodev.antigravity.linux.ProotRunner
+import ru.nanodev.antigravity.linux.RuntimeInstaller
 import ru.nanodev.antigravity.net.GeminiApi
+import ru.nanodev.antigravity.net.ModelCheck
+import ru.nanodev.antigravity.net.ModelProbe
 import ru.nanodev.antigravity.remotedesktop.RemoteDesktopService
 import ru.nanodev.antigravity.runtime.AntigravityShellEngine
 import ru.nanodev.antigravity.scheduler.ScheduleManager
@@ -1024,12 +1028,7 @@ private fun TerminalPane(
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         Box(Modifier.weight(1f).fillMaxWidth().glass(RoundedCornerShape(GlassCornerRadius), alpha = 0.10f).padding(12.dp)) {
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                items(lines) { l ->
-                    val appear = remember { MutableTransitionState(false).apply { targetState = true } }
-                    AnimatedVisibility(visibleState = appear, enter = fadeIn(AgAnim.TERMINAL_LINE_APPEAR.spec<Float>())) {
-                        Text(l, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                }
+                items(lines) { l -> FadeInLine(l) }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -1193,6 +1192,16 @@ private fun SettingsPane(
         }
 
         GlassCard {
+            val probeScope = rememberCoroutineScope()
+            var probe by remember { mutableStateOf<String?>(null) }
+            OutlinedButton(onClick = {
+                probe = "Проверяем…"
+                probeScope.launch { probe = describeCheck(ModelProbe.check(settings.geminiApiKey, settings.selectedModel)) }
+            }) { Text("Проверить ${modelTitle(settings.selectedModel)}") }
+            probe?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+
+        GlassCard {
             Text("Разрешения", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1337,16 +1346,13 @@ private fun AgySetupPane() {
                         progress = { if (p.total > 0) p.done.toFloat() / p.total.toFloat() else 0f },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    Text(
-                        "Скачано ${mebibytes(p.done)} из ${if (p.total > 0) mebibytes(p.total) else "?"} МБ",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    DownloadStats(p.done, p.total, p.bytesPerSec)
                 }
 
                 is AgyInstaller.Phase.Done -> {
                     Text("Готово: ${p.path}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
                     Text("SHA-256: ${p.sha256}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Рабочая папка agy: ${AgyInstaller.workspaceDir(context).absolutePath}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         if (p.verified) "Совпадает с опубликованной суммой" else "Опубликованной суммы нет. Сверьте хэш вручную",
                         fontSize = 12.sp,
@@ -1360,6 +1366,8 @@ private fun AgySetupPane() {
                 }
             }
         }
+
+        LinuxRuntimeCard()
 
         if (phase is AgyInstaller.Phase.Done) {
             GlassCard {
@@ -1383,17 +1391,157 @@ private fun AgySetupPane() {
 private fun mebibytes(bytes: Long): String = String.format(java.util.Locale.ROOT, "%.1f", bytes / 1_048_576.0)
 
 
-/** Кнопка «вниз» отдельной компонентой: BoxScope без ColumnScope, поэтому выравнивание работает. */
+/** Кнопка «вниз»: обычная компонента, выравнивание внутри собственного Box. */
 @Composable
-private fun BoxScope.ScrollDownButton(visible: Boolean, onClick: () -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
-        enter = fadeIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()) + scaleIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()),
-        exit = fadeOut(AgAnim.CHAT_SCROLL_TO_END.spec<Float>())
-    ) {
-        IconButton(onClick = onClick) {
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "К последнему сообщению")
+private fun ScrollDownButton(visible: Boolean, onClick: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+        AnimatedVisibility(
+            visible = visible,
+            modifier = Modifier.padding(8.dp),
+            enter = fadeIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()) + scaleIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()),
+            exit = fadeOut(AgAnim.CHAT_SCROLL_TO_END.spec<Float>())
+        ) {
+            IconButton(onClick = onClick) {
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "К последнему сообщению")
+            }
         }
     }
+}
+
+private fun describeCheck(c: ModelCheck): String = when (c) {
+    ModelCheck.Available -> "Модель доступна по вашему ключу"
+    ModelCheck.NotFound -> "Этой модели нет в публичном API. Выберите другую"
+    is ModelCheck.Invalid -> c.reason
+    is ModelCheck.Failed -> "Ошибка: ${c.reason}"
+}
+
+/** Шаг 3: среда Linux (манифест вшит), проверка agy и вход в agy внутри среды. */
+@Composable
+private fun LinuxRuntimeCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var phase by remember { mutableStateOf<RuntimeInstaller.Phase>(RuntimeInstaller.Phase.Idle) }
+    var result by remember { mutableStateOf<ProotRunner.Result?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var loginProcess by remember { mutableStateOf<Process?>(null) }
+    var loginLines by remember { mutableStateOf(listOf<String>()) }
+    GlassCard {
+        Text("Шаг 3. Среда Linux", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "PRoot и Ubuntu приложение скачивает по вшитому манифесту и проверяет SHA-256. В APK они не вшиваются.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        when (val p = phase) {
+            RuntimeInstaller.Phase.Idle -> Unit
+            is RuntimeInstaller.Phase.Downloading -> {
+                LinearProgressIndicator(
+                    progress = { if (p.total > 0) p.done.toFloat() / p.total.toFloat() else 0f },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                DownloadStats(p.done, p.total, p.bytesPerSec, label = p.component)
+            }
+            RuntimeInstaller.Phase.Ready -> Text("Среда готова", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+            is RuntimeInstaller.Phase.Failed -> Text(p.reason, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+        }
+        Button(
+            onClick = {
+                phase = RuntimeInstaller.Phase.Downloading("манифест", 0, 0)
+                scope.launch { RuntimeInstaller.install(context) { phase = it } }
+            },
+            enabled = phase !is RuntimeInstaller.Phase.Downloading
+        ) { Text("Установить среду") }
+        OutlinedButton(
+            onClick = {
+                busy = true
+                scope.launch {
+                    result = runCatching { ProotRunner.runAgy(context, listOf("--version")) }
+                        .getOrElse { ProotRunner.Result(-1, it.message ?: "ошибка запуска") }
+                    busy = false
+                }
+            },
+            enabled = !busy && phase == RuntimeInstaller.Phase.Ready
+        ) { Text("Проверить agy (--version)") }
+        OutlinedButton(
+            onClick = {
+                busy = true
+                scope.launch {
+                    result = runCatching { ProotRunner.runAgy(context, listOf("--help")) }
+                        .getOrElse { ProotRunner.Result(-1, it.message ?: "ошибка запуска") }
+                    busy = false
+                }
+            },
+            enabled = !busy && phase == RuntimeInstaller.Phase.Ready
+        ) { Text("Справка agy (--help)") }
+        result?.let { r ->
+            Text(
+                "Код выхода: ${r.exitCode}\n${r.output.take(2000)}",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        if (phase == RuntimeInstaller.Phase.Ready) {
+            Text("Вход в agy", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                "agy запускается внутри среды и выводит ссылку для входа. Открой её в браузере. Когда вход завершён, процесс сам завершится.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = {
+                    loginLines = emptyList()
+                    runCatching {
+                        ProotRunner.start(context, ProotRunner.LOGIN_ARGS) { line ->
+                            scope.launch { loginLines = loginLines + line }
+                        }
+                    }.onSuccess { proc ->
+                        loginProcess = proc
+                        scope.launch(Dispatchers.IO) {
+                            val code = proc.waitFor()
+                            withContext(Dispatchers.Main) {
+                                loginLines = loginLines + "[процесс входа завершён, код $code]"
+                                loginProcess = null
+                            }
+                        }
+                    }.onFailure { loginLines = listOf("Ошибка запуска: ${it.message}") }
+                },
+                enabled = loginProcess == null
+            ) { Text("Войти в agy") }
+            if (loginProcess != null) {
+                OutlinedButton(onClick = {
+                    loginProcess?.destroy()
+                    loginProcess = null
+                }) { Text("Остановить вход") }
+            }
+            loginLines.takeLast(40).forEach { line ->
+                Text(line, fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
+
+/** Строка терминала: плавное появление. Отдельная компонента, без лишних получателей. */
+@Composable
+private fun FadeInLine(text: String) {
+    val visible = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(visibleState = visible, enter = fadeIn(AgAnim.TERMINAL_LINE_APPEAR.spec<Float>())) {
+        Text(text, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** Панель загрузки: процент, сколько скачано из скольки, скорость. */
+@Composable
+private fun DownloadStats(done: Long, total: Long, bytesPerSec: Long, label: String = "") {
+    val percent = if (total > 0) (done * 100 / total).toInt() else 0
+    val speed = if (bytesPerSec > 0) String.format(java.util.Locale.ROOT, "%.1f МБ/с", bytesPerSec / 1_048_576.0) else "— МБ/с"
+    val prefix = if (label.isNotEmpty()) "$label · " else ""
+    val size = "${mebibytes(done)} из ${if (total > 0) mebibytes(total) else "?"} МБ"
+    Text(
+        "$prefix$percent% · $size · $speed",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }

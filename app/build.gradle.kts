@@ -16,6 +16,11 @@ val googleWebClientId: String = (findProperty("AG_GOOGLE_WEB_CLIENT_ID") as Stri
     ?: System.getenv("AG_GOOGLE_WEB_CLIENT_ID")
     ?: ""
 
+// Адрес манифеста среды Linux (PRoot и rootfs). Задаёт владелец сборки, в APK ничего не вшивается.
+val runtimeManifestUrl: String = (findProperty("AG_RUNTIME_MANIFEST_URL") as String?)
+    ?: System.getenv("AG_RUNTIME_MANIFEST_URL")
+    ?: ""
+
 android {
     namespace = "ru.nanodev.antigravity"
     compileSdk = 34
@@ -28,6 +33,7 @@ android {
         versionCode = (System.getenv("AG_VERSION_CODE") ?: "2").toInt()
         versionName = "0.2.0"
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "RUNTIME_MANIFEST_URL", "\"$runtimeManifestUrl\"")
     }
 
     if (agKeystorePath != null) {

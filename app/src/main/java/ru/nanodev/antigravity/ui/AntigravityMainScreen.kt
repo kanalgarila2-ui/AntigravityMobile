@@ -1,5 +1,11 @@
 package ru.nanodev.antigravity.ui
 
+import ru.nanodev.antigravity.ui.components.AgTextField
+import androidx.compose.foundation.layout.BoxScope
+import android.content.Intent
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.material.icons.filled.Download
 import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -70,6 +76,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SwitchAccount
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -126,6 +133,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import ru.nanodev.antigravity.agy.AgyInstaller
 import ru.nanodev.antigravity.auth.ApiKeyStore
 import ru.nanodev.antigravity.auth.GoogleResult
 import ru.nanodev.antigravity.auth.GoogleSignIn
@@ -152,7 +160,7 @@ import java.util.Locale
 import java.util.UUID
 
 /** Экраны приложения. Нижних вкладок нет: навигация через левую панель. */
-enum class AgScreen { CHAT, TERMINAL, TOOLS, REMOTE, SETTINGS }
+enum class AgScreen { CHAT, TERMINAL, TOOLS, CLI, REMOTE, SETTINGS }
 
 /** Модель по умолчанию. */
 const val DEFAULT_MODEL_ID = "gemini-3.8-flash"
@@ -344,7 +352,10 @@ fun AntigravityMainScreen(
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
-            ModalDrawerSheet(modifier = Modifier.widthIn(max = 320.dp)) {
+            ModalDrawerSheet(
+                modifier = Modifier.widthIn(max = 320.dp),
+                drawerContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.80f)
+            ) {
                 DrawerContent(
                     projects = projects,
                     activeFolder = session.folderPath,
@@ -391,6 +402,7 @@ fun AntigravityMainScreen(
                                         AgScreen.CHAT -> session.projectName
                                         AgScreen.TERMINAL -> "Терминал"
                                         AgScreen.TOOLS -> "Инструменты"
+                                        AgScreen.CLI -> "Antigravity CLI"
                                         AgScreen.REMOTE -> "Remote"
                                         AgScreen.SETTINGS -> "Настройки"
                                     },
@@ -444,6 +456,7 @@ fun AntigravityMainScreen(
                             tasks = tasks.map { it.id to "${it.title} · ${it.lastRunStatus}" },
                             onRunTask = { scheduleManager.runTaskImmediately(it) }
                         )
+                        AgScreen.CLI -> AgySetupPane()
                         AgScreen.REMOTE -> RemotePane(
                             enabled = settings.remoteControlHostEnabled,
                             onEnable = { on ->
@@ -643,12 +656,11 @@ private fun DrawerContent(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                AgTextField(
                     value = newName,
                     onValueChange = { newName = it },
-                    singleLine = true,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Новый проект") }
+                    placeholder = "Новый проект"
                 )
                 AnimatedVisibility(
                     visible = newName.isNotBlank(),
@@ -667,6 +679,7 @@ private fun DrawerContent(
             Spacer(Modifier.height(8.dp))
             DrawerItem("Терминал", Icons.Default.Terminal, current == AgScreen.TERMINAL) { onScreen(AgScreen.TERMINAL) }
             DrawerItem("Инструменты", Icons.Default.Build, current == AgScreen.TOOLS) { onScreen(AgScreen.TOOLS) }
+            DrawerItem("Antigravity CLI", Icons.Default.Download, current == AgScreen.CLI) { onScreen(AgScreen.CLI) }
             DrawerItem("Remote (Beta)", Icons.Default.DesktopWindows, current == AgScreen.REMOTE) { onScreen(AgScreen.REMOTE) }
 
             Spacer(Modifier.height(8.dp))
@@ -823,11 +836,9 @@ private fun ChatPane(
                     item { TypingIndicator() }
                 }
             }
-            AnimatedVisibility(
+            ScrollDownButton(
                 visible = showScrollDown,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
-                enter = fadeIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()) + scaleIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()),
-                exit = fadeOut(AgAnim.CHAT_SCROLL_TO_END.spec<Float>())
+                onClick = { if (session.messages.isNotEmpty()) scope.launch { listState.animateScrollToItem(session.messages.size - 1) } }
             ) {
                 IconButton(onClick = {
                     if (session.messages.isNotEmpty()) {
@@ -856,14 +867,15 @@ private fun ChatPane(
         GlassCard(Modifier.padding(bottom = 8.dp), alpha = glow) {
             ModelPicker(modelId, modelOptions, onPickModel)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
+                AgTextField(
                     value = input,
                     onValueChange = onInput,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text(if (online) "Сообщение агенту" else "Офлайн: отправка недоступна") },
+                    placeholder = if (online) "Сообщение агенту" else "Офлайн: отправка недоступна",
                     enabled = online || input.startsWith("!"),
-                    interactionSource = inputSource,
-                    maxLines = 4
+                    singleLine = false,
+                    maxLines = 4,
+                    interactionSource = inputSource
                 )
                 val canSend = input.isNotBlank() && !running && (online || input.startsWith("!"))
                 val micTint by animateColorAsState(
@@ -1010,7 +1022,7 @@ private fun TerminalPane(
     }
 
     Column(Modifier.fillMaxSize().padding(12.dp)) {
-        GlassCard(Modifier.weight(1f)) {
+        Box(Modifier.weight(1f).fillMaxWidth().glass(RoundedCornerShape(GlassCornerRadius), alpha = 0.10f).padding(12.dp)) {
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(lines) { l ->
                     val appear = remember { MutableTransitionState(false).apply { targetState = true } }
@@ -1022,13 +1034,12 @@ private fun TerminalPane(
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
+            AgTextField(
                 value = cmd,
                 onValueChange = { cmd = it },
                 modifier = Modifier.weight(1f),
-                singleLine = true,
-                prefix = { Text("$ ", fontFamily = FontFamily.Monospace, modifier = Modifier.alpha(blink)) },
-                placeholder = { Text("ls -la, git status, python3 --version") }
+                placeholder = "ls -la, git status, python3 --version",
+                leading = { Text("$ ", fontFamily = FontFamily.Monospace, modifier = Modifier.alpha(blink)) }
             )
             IconButton(onClick = { run() }, enabled = cmd.isNotBlank() && !busy) {
                 Icon(
@@ -1294,5 +1305,95 @@ private fun SwitchRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onChecked, modifier = Modifier.scale(thumbScale))
+    }
+}
+
+/** Мастер Antigravity CLI: шаг 1 — скачать и проверить, шаг 2 — вход (его выполняет сам agy). */
+@Composable
+private fun AgySetupPane() {
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
+    var phase by remember { mutableStateOf<AgyInstaller.Phase>(AgyInstaller.Phase.Idle) }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        GlassCard {
+            Text("Шаг 1 из 2. Скачать Antigravity CLI", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                "Файл берётся с официального релиза Google на GitHub. Приложение считает SHA-256 и сверяет его с опубликованным.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            when (val p = phase) {
+                AgyInstaller.Phase.Idle -> Button(onClick = {
+                    phase = AgyInstaller.Phase.Downloading(0, 0)
+                    scope.launch { AgyInstaller.install(context) { phase = it } }
+                }) { Text("Скачать") }
+
+                is AgyInstaller.Phase.Downloading -> {
+                    LinearProgressIndicator(
+                        progress = { if (p.total > 0) p.done.toFloat() / p.total.toFloat() else 0f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Скачано ${mebibytes(p.done)} из ${if (p.total > 0) mebibytes(p.total) else "?"} МБ",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                is AgyInstaller.Phase.Done -> {
+                    Text("Готово: ${p.path}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text("SHA-256: ${p.sha256}", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        if (p.verified) "Совпадает с опубликованной суммой" else "Опубликованной суммы нет. Сверьте хэш вручную",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                is AgyInstaller.Phase.Failed -> {
+                    Text(p.reason, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { phase = AgyInstaller.Phase.Idle }) { Text("Повторить") }
+                }
+            }
+        }
+
+        if (phase is AgyInstaller.Phase.Done) {
+            GlassCard {
+                Text("Шаг 2 из 2. Вход", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    "Вход выполняет сам agy: он откроет свою страницу Google и сохранит токен у себя. " +
+                        "Вход в это приложение в agy не переносится.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedButton(onClick = { clipboard.setText(AnnotatedString("agy")) }) { Text("Скопировать команду: agy") }
+                OutlinedButton(onClick = {
+                    context.packageManager.getLaunchIntentForPackage("com.termux")
+                        ?.let { context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }) { Text("Открыть Termux") }
+            }
+        }
+    }
+}
+
+private fun mebibytes(bytes: Long): String = String.format(java.util.Locale.ROOT, "%.1f", bytes / 1_048_576.0)
+
+
+/** Кнопка «вниз» отдельной компонентой: BoxScope без ColumnScope, поэтому выравнивание работает. */
+@Composable
+private fun BoxScope.ScrollDownButton(visible: Boolean, onClick: () -> Unit) {
+    AnimatedVisibility(
+        visible = visible,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp),
+        enter = fadeIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()) + scaleIn(AgAnim.CHAT_SCROLL_TO_END.spec<Float>()),
+        exit = fadeOut(AgAnim.CHAT_SCROLL_TO_END.spec<Float>())
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = "К последнему сообщению")
+        }
     }
 }

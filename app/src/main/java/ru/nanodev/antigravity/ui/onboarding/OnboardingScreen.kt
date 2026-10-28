@@ -1,5 +1,6 @@
 package ru.nanodev.antigravity.ui.onboarding
 
+import ru.nanodev.antigravity.ui.components.AgTextField
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
@@ -259,28 +260,23 @@ fun OnboardingScreen(keyStore: ApiKeyStore, onAuthenticated: () -> Unit) {
                     .padding(18.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
+                AgTextField(
                     value = key,
                     onValueChange = {
                         key = it.trim()
                         if (state !is OnbState.Checking) state = OnbState.Idle
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Gemini API-ключ") },
-                    singleLine = true,
+                    placeholder = "Gemini API-ключ",
                     enabled = state !is OnbState.Checking,
                     interactionSource = fieldSource,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = borderColor,
-                        unfocusedBorderColor = borderColor
-                    ),
                     visualTransformation = if (reveal) {
                         androidx.compose.ui.text.input.VisualTransformation.None
                     } else {
                         androidx.compose.ui.text.input.PasswordVisualTransformation()
                     },
-                    leadingIcon = { Icon(Icons.Default.Key, contentDescription = null) },
-                    trailingIcon = {
+                    leading = { Icon(Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    trailing = {
                         IconButton(onClick = { reveal = !reveal }) {
                             AnimatedContent(
                                 targetState = reveal,

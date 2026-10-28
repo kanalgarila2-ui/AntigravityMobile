@@ -843,15 +843,7 @@ private fun ChatPane(
             ScrollDownButton(
                 visible = showScrollDown,
                 onClick = { if (session.messages.isNotEmpty()) scope.launch { listState.animateScrollToItem(session.messages.size - 1) } }
-            ) {
-                IconButton(onClick = {
-                    if (session.messages.isNotEmpty()) {
-                        scope.launch { listState.animateScrollToItem(session.messages.size - 1) }
-                    }
-                }) {
-                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "К последнему сообщению")
-                }
-            }
+            )
         }
 
         AnimatedVisibility(
